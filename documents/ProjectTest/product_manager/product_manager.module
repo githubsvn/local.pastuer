@@ -1,0 +1,588 @@
+<?php
+
+/**
+ * Implements hook_menu().
+ */
+function product_manager_menu()
+{
+    $items = array();
+    $items['admin/product/add'] = array(
+        'title' => 'Add Product',
+        'page callback' => 'drupal_get_form',
+        'page arguments' => array('_show_form_product_add'),
+        'access arguments' => array('create product manager'),
+        'type' => MENU_SUGGESTED_ITEM
+    );
+
+    $items['admin/product/list'] = array(
+        'title' => 'List of Product',
+        'description' => 'Find and manage product.',
+        'page callback' => 'drupal_get_form',
+        'access arguments' => array('list product manager'),
+        'page arguments' => array('_show_form_product_list'),
+        'position' => 'right',
+    );
+
+    $items['admin/product/edit/%'] = array(
+        'title' => 'Edit Product',
+        'page callback' => 'drupal_get_form',
+        'page arguments' => array('_show_form_product_add'),
+        'access arguments' => array('edit own product manager, edit any product manager'),
+        'type' => MENU_SUGGESTED_ITEM
+    );
+
+    return $items;
+}
+
+/**
+ * Implement hook_menu_local_tasks_alter
+ * adding menu "Add Product" on page "List of Product"
+ *
+ * @param type $data
+ * @param type $router_item
+ * @param type $root_path
+ */
+function product_manager_menu_local_tasks_alter(&$data, $router_item, $root_path)
+{
+    switch ($root_path) {
+        case 'admin/product/list' :
+            $item = menu_get_item('admin/product/add');
+            if ($item['access']) {
+                $data['actions']['output'][] = array(
+                    '#theme' => 'menu_local_action',
+                    '#link' => $item,
+                );
+            }
+            break;
+    }
+}
+
+/**
+ * Implement hook_theme
+ */
+function product_manager_theme()
+{
+    return array(
+        'product_manager_add_theme' => array(
+            'path' => drupal_get_path('module', 'product_manager'),
+            'render element' => 'form',
+            'template' => 'templates/product_manager_add_theme',
+        ),
+    );
+}
+
+/**
+ * Build and show form add product
+ *
+ * @param type $form
+ * @param type $form_state
+ * @return type
+ */
+function _show_form_product_add($form, &$form_state)
+{
+    $idProduct = arg(3);
+    $idProduct = !empty($idProduct) ? $idProduct : 0;
+
+    $result = db_select('product', 'p')
+            ->fields('p')
+            ->condition('p.id', $idProduct, '=')
+            ->execute()
+            ->fetchAssoc();
+
+    $form['name'] = array(
+        '#type' => 'textfield',
+        '#title' => t('Name'),
+        '#required' => TRUE,
+        '#default_value' => !empty($result['name']) ? $result['name'] : ''
+    );
+
+    $form['cat_id'] = array(
+        '#type' => 'select',
+        '#title' => t('Product category'),
+        '#options' => _get_option_category(),
+        '#required' => TRUE,
+        '#default_value' => !empty($result['cat_id']) ? $result['cat_id'] : ''
+    );
+    $form['short_des'] = array(
+        '#type' => 'textarea',
+        '#title' => t('Short description'),
+        '#default_value' => !empty($result['short_des']) ? $result['short_des'] : ''
+    );
+    $form['des'] = array(
+        '#type' => 'text_format',
+        '#format' => 'full_html',
+        '#title' => t('Description'),
+        '#default_value' => !empty($result['des']) ? $result['des'] : ''
+    );
+    $form['image'] = array(
+        '#name' => 'image',
+        '#title' => t('Image'),
+        '#type' => 'managed_file',
+        '#upload_location' => 'public://',
+        '#default_value' => !empty($result['image']) ? $result['image'] : ''
+    );
+    $form['published'] = array(
+        '#type' => 'checkbox',
+        '#title' => t('Published'),
+        '#default_value' => !empty($result['published']) ? $result['published'] : ''
+    );
+    $form['submit'] = array(
+        '#type' => 'submit',
+        '#title' => t('Save'),
+        '#value' => t('Save'),
+    );
+
+    $form['#submit'] = array('_show_form_product_add_submit');
+    $form['#theme'] = 'product_manager_add_theme';
+    return $form;
+}
+
+/**
+ * build option for select of the form and data get from taxonomy category_product
+ * @return array
+ */
+function _get_option_category()
+{
+    $vocab = taxonomy_vocabulary_machine_name_load('category_product');
+    $vid = $vocab->vid;
+    $results = db_select('taxonomy_term_data', 't')
+            ->fields('t', array('tid', 'name'))
+            ->condition("t.vid", $vid)
+            ->execute();
+
+    $options = array();
+    $options[] = '-- Select Category --';
+    foreach ($results as $term) {
+        $options[$term->tid] = $term->name;
+    }
+    return $options;
+}
+
+/**
+ * Get data from POST and saving to table product
+ *
+ * @param type $form
+ * @param type $form_state
+ * @return type
+ */
+function _show_form_product_add_submit($form, &$form_state)
+{
+    $idProduct = arg(3);
+    $idProduct = !empty($idProduct) ? $idProduct : 0;
+
+    if (is_numeric($form_state['values']['image'])) {
+        $file = file_load($form_state['values']['image']);
+        if ($file) {
+            file_save($file);
+        }
+    }
+
+    if (empty($idProduct)) {
+        $rst = db_insert('product')
+                ->fields(array('name', 'cat_id', 'short_des', 'des', 'image', 'published', 'created'))
+                ->values(array(
+                    'name' => $form_state['values']['name'],
+                    'cat_id' => $form_state['values']['cat_id'],
+                    'short_des' => $form_state['values']['short_des'],
+                    'des' => $form_state['values']['des']['value'],
+                    'image' => isset($file->fid) ? $file->fid : '',
+                    'published' => $form_state['values']['published'],
+                    'created' => format_date(time(), 'custom', 'Y-m-d H:i:s')
+                ))
+                ->execute();
+    } else {
+        //Update product
+        $rst = db_update('product')
+                ->fields(array(
+                    'name' => $form_state['values']['name'],
+                    'cat_id' => $form_state['values']['cat_id'],
+                    'short_des' => $form_state['values']['short_des'],
+                    'des' => $form_state['values']['des']['value'],
+                    'image' => isset($file->fid) ? $file->fid : '',
+                    'published' => $form_state['values']['published'],
+                ))
+                ->condition('id', $idProduct, '=')
+                ->execute();
+    }
+
+    if ($rst) {
+        drupal_set_message('Saving is success.');
+        drupal_goto('admin/product/list');
+    } else {
+        drupal_set_message('Saving is fail.');
+    }
+
+    return $rst;
+}
+
+/**
+ * Show product list
+ *
+ * @global type $user
+ * @param type $form
+ * @param type $form_state
+ * @return type
+ */
+function _show_form_product_list($form, &$form_state)
+{
+    /**
+     * @todo Show form Filter
+     */
+    $form['filter'] = array(
+        '#type' => 'fieldset',
+        '#title' => t('Filter'),
+        '#theme' => 'exposed_filters__node',
+    );
+    $form['filter']['name'] = array(
+        '#type' => 'textfield',
+        '#title' => t('Name'),
+        '#default_value' => isset($_SESSION['name_product']) ? $_SESSION['name_product'] : '',
+    );
+    $form['filter']['published'] = array(
+        '#type' => 'select',
+        '#title' => t('Status'),
+        '#options' => array(-1 => '-- Select Status --', 1 => 'Published', 0 => 'Unpublished'),
+        '#default_value' => isset($_SESSION['published_product']) ? $_SESSION['published_product'] : -1,
+    );
+    $form['filter']['cat_id'] = array(
+        '#type' => 'select',
+        '#title' => t('Product Category'),
+        '#options' => _get_option_category(),
+        '#default_value' => isset($_SESSION['cat_id_product']) ? $_SESSION['cat_id_product'] : 0,
+    );
+    $form['filter']['submit'] = array(
+        '#type' => 'submit',
+        '#value' => t('Filter'),
+    );
+    $form['filter']['reset'] = array(
+        '#type' => 'submit',
+        '#value' => t('Reset'),
+        '#submit' => array('product_reset_filter'),
+    );
+
+
+    /*
+     * @todo Update Button
+     */
+    $form['update'] = form_product_update($form, $form_state);
+
+    global $user;
+    $header = array(
+        'name' => array('data' => t('Name'), 'field' => 'name', 'sort' => 'desc'),
+        'cat_id' => array('data' => t('Category Name'), 'field' => 'cat_id', 'sort' => 'desc'),
+        'published' => array('data' => t('Status'), 'field' => 'published')
+    );
+    $header['operations'] = array('data' => t('Actions'), 'style' => 'width: 60px;');
+
+    $query = db_select('product', 'n')->extend('PagerDefault')->extend('TableSort');
+
+    //Filter by name
+    if (isset($_SESSION['name_product']) && !empty($_SESSION['name_product'])) {
+        $query->condition('n.name', '%' . $_SESSION['name_product'] . '%', 'LIKE');
+    }
+    //Filter by published
+    if (isset($_SESSION['published_product']) && $_SESSION['published_product'] !== '' && $_SESSION['published_product'] >= 0) {
+        $query->condition('n.published', $_SESSION['published_product'], '=');
+    }
+    //Filter by category product
+    if (isset($_SESSION['cat_id_product']) && !empty($_SESSION['cat_id_product']) && $_SESSION['cat_id_product'] > 0) {
+        $query->condition('n.cat_id', $_SESSION['cat_id_product'], '=');
+    }
+
+    $query->fields('n')->orderByHeader($header)->limit(10);
+
+    $result = $query->execute()->fetchAll();
+
+    $options = array();
+    $destination = drupal_get_destination();
+
+    foreach ($result as $row) {
+        $strHref = '';
+        $cat = taxonomy_term_load($row->cat_id);
+        $catName = '';
+        if (is_object($cat)) {
+            $catName = $cat->name;
+        }
+
+
+        $strHref .= '<a href="/admin/product/edit/' . $row->id . '?destination=' . $destination['destination'] . '" title="' . t('Edit') . '">' . t('Edit') . '</a>';
+        $status = t('Unpublish');
+        if ($row->published == 1)
+            $status = t('Publish');
+
+        $options[$row->id] = array(
+            'name' => $row->name,
+            'cat_id' => $catName,
+            'published' => $status,
+            'operations' => $strHref
+        );
+    }
+
+    /**
+     * @todo Submit Filter
+     */
+    if (isset($form_state['input']['op']) == t('Filter')) {
+        $_SESSION['name_product'] = $form_state['input']['name'];
+        $_SESSION['published_product'] = $form_state['input']['published'];
+        $_SESSION['cat_id_product'] = $form_state['input']['cat_id'];
+    }
+
+    $form['products'] = array(
+        '#type' => 'tableselect',
+        '#header' => $header,
+        '#options' => $options,
+        '#empty' => t('No content available.'),
+    );
+
+    $form['pager'] = array('#markup' => theme('pager'));
+    return $form;
+}
+
+/**
+ * Reset filter
+ *
+ * @param type $form
+ * @param type $form_state
+ */
+function product_reset_filter($form = array(), &$form_state = array())
+{
+    $_SESSION['name_product'] = '';
+    $_SESSION['published_product'] = '';
+    $_SESSION['cat_id_product'] = '';
+}
+
+/**
+ * Show form update
+ *
+ * @param type $form
+ * @param type $form_state
+ * @return string
+ */
+function form_product_update($form = array(), &$form_state = array())
+{
+    $form = array();
+    $form['options'] = array(
+        '#type' => 'fieldset',
+        '#title' => t('Update options'),
+        '#attributes' => array('class' => array('container-inline')),
+    );
+
+    $options = array('delete' => t('Delete'), 'publish' => t('Published'), 'unpublish' => t('Unpublished'));
+
+    $form['options']['operation'] = array(
+        '#type' => 'select',
+        '#title' => t('Operation'),
+        '#title_display' => 'invisible',
+        '#options' => $options,
+        '#default_value' => 'approve',
+    );
+    $form['options']['submit'] = array(
+        '#type' => 'submit',
+        '#value' => t('Update'),
+        '#validate' => array('product_update_validate'),
+        '#submit' => array('product_update_submit'),
+    );
+    return $form;
+}
+
+/**
+ * Checking product is checked or not.
+ *
+ * @param type $form
+ * @param type $form_state
+ * @return int
+ */
+function product_update_validate($form, &$form_state)
+{
+    $isValid = 0;
+    if (is_array($form_state['values']['products']) && count($form_state['values']['products']) > 0) {
+        foreach ($form_state['values']['products'] as $k => $v) {
+            if (!empty($v)) {
+                $isValid = 1;
+            }
+        }
+    }
+    if (!$isValid) {
+        drupal_set_message('Please choose each least one record.', 'error');
+    }
+    return $isValid;
+}
+
+/**
+ * excute operation
+ *
+ * @param type $form
+ * @param type $form_state
+ */
+function product_update_submit($form, &$form_state)
+{
+    $rst = array();
+    //Get product Id
+    $productIds = array();
+    if (is_array($form_state['values']['products']) && count($form_state['values']['products']) > 0) {
+        foreach ($form_state['values']['products'] as $k => $v) {
+            if (!empty($v)) {
+                $productIds[] = $v;
+            }
+        }
+    }
+
+    //get operation
+    $op = !empty($form_state['values']['operation']) ? $form_state['values']['operation'] : '';
+
+    if ($op == 'unpublish') {
+        $rst = update_status_product($productIds, 0);
+    } else if ($op == 'publish') {
+        $rst = update_status_product($productIds, 1);
+    } else if ($op == 'delete') {
+        $rst = delete_product($productIds);
+    }
+
+    if (is_array($rst) && count($rst) > 0) {
+        drupal_set_message('Operation is success.');
+    }
+}
+
+/**
+ * delete product
+ *
+ * @param type $productIds
+ * @return int
+ */
+function delete_product($productIds = array())
+{
+    global $user;
+
+    $isAllow = user_product_access('delete own product manager', $user) || user_product_access('delete any product manager', $user);
+
+    if (!$isAllow) {
+        drupal_set_message(t("You don't have permission to delete."), 'error');
+        drupal_goto('admin/product/list');
+    }
+
+    $rst = array();
+    if (is_array($productIds) && count($productIds) > 0) {
+        foreach ($productIds as $id) {
+            $isDeleted = $num_deleted = db_delete('product')
+                    ->condition('id', $id)
+                    ->execute();
+            if ($isDeleted) {
+                $rst[] = $id;
+            }
+        }
+    }
+    return $rst;
+}
+
+/**
+ * Update status product
+ *
+ * @param type $productIds
+ * @param type $status
+ * @return int
+ */
+function update_status_product($productIds = array(), $status = 0)
+{
+    $rst = array();
+    if (is_array($productIds) && count($productIds) > 0) {
+        foreach ($productIds as $id) {
+            $isUpdated = db_update('product') // Table name no longer needs {}
+                    ->fields(array(
+                        'published' => $status,
+                    ))
+                    ->condition('id', $id, '=')
+                    ->execute();
+            if ($isUpdated) {
+                $rst[] = $id;
+            }
+        }
+    }
+    return $rst;
+}
+
+/**
+ * Check permission for all user and super admin
+ *
+ * @global type $user
+ * @staticvar type $drupal_static_fast
+ * @param type $string
+ * @param type $account
+ * @return type
+ */
+function user_product_access($string, $account = NULL)
+{
+    global $user;
+
+    if (!isset($account)) {
+        $account = $user;
+    }
+
+    // To reduce the number of SQL queries, we cache the user's permissions
+    // in a static variable.
+    // Use the advanced drupal_static() pattern, since this is called very often.
+    static $drupal_static_fast;
+    if (!isset($drupal_static_fast)) {
+        $drupal_static_fast['perm'] = &drupal_static(__FUNCTION__);
+    }
+    $perm = &$drupal_static_fast['perm'];
+    if (!isset($perm[$account->uid])) {
+        $role_permissions = user_role_permissions($account->roles);
+
+        $perms = array();
+        foreach ($role_permissions as $one_role) {
+            $perms += $one_role;
+        }
+        $perm[$account->uid] = $perms;
+    }
+
+    return isset($perm[$account->uid][$string]);
+}
+
+
+/**
+ * Implements hook_permission().
+ */
+function product_manager_permission()
+{
+    return array(
+        'list product manager' => array(
+            'title' => t('Listing a product manager'),
+            'description' => t('Listing a product manager'),
+        ),
+        'create product manager' => array(
+            'title' => t('Create a product manager'),
+            'description' => t('Create a product manager'),
+        ),
+        'edit own product manager' => array(
+            'title' => t('Edit own product manager'),
+            'description' => t('Edit your own product manager'),
+        ),
+        'edit any product manager' => array(
+            'title' => t('Edit any product manager'),
+            'description' => t('Edit any product manager'),
+        ),
+        'delete own product manager' => array(
+            'title' => t('Delete own product manager'),
+            'description' => t('Delete own product manager'),
+        ),
+        'delete any product manager' => array(
+            'title' => t('Delete any product manager'),
+            'description' => t('Delete any product manager'),
+        ),
+    );
+}
+
+/**
+ * Implements hook_menu_alter().
+ */
+function product_manager_menu_alter(&$callbacks)
+{
+    if (!user_access('administer product')) {
+        $callbacks['amdin/add/product']['access callback'] = FALSE;
+        $callbacks['amdin/add/list']['access callback'] = FALSE;
+        $callbacks['amdin/product/edit/%']['access callback'] = FALSE;
+        unset($callbacks['amdin/add/product']['access arguments']);
+        unset($callbacks['amdin/add/list']['access arguments']);
+        unset($callbacks['amdin/product/edit/%']['access arguments']);
+    }
+}

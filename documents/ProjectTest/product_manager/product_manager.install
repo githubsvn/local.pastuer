@@ -1,0 +1,63 @@
+<?php
+
+/**
+ * Implement hook schema
+ */
+function product_manager_schema()
+{
+    $schema['product'] = array(
+        'description' => 'Store product',
+        'fields' => array(
+            'id' => array(
+                'description' => t('My unique identifier'),
+                'type' => 'serial',
+                'length' => 11,
+                'unsigned' => true,
+                'not null' => true,
+            ),
+            'cat_id' => array(
+                'description' => t('Cat Product'),
+                'type' => 'int',
+                'length' => 11,
+                'unsigned' => true,
+                'not null' => true,
+            ),
+            'name' => array(
+                'description' => t('Name'),
+                'type' => 'varchar',
+                'length' => 255,
+                'not null' => true,
+            ),
+            'short_des' => array(
+                'description' => t('Short Description'),
+                'type' => 'text',
+                'not null' => false,
+            ),
+            'des' => array(
+                'description' => t('Description'),
+                'type' => 'text',
+                'not null' => false,
+            ),
+            'image' => array(
+                'description' => t('Image'),
+                'type' => 'varchar',
+                'length' => 255,
+                'not null' => false,
+            ),
+            'published' => array(
+                'description' => t('Published'),
+                'type' => 'int',
+                'length' => 1,
+                'not null' => false,
+            ),
+            'created' => array(
+                'type' => 'datetime',
+                'mysql_type' => 'DATETIME',
+                'not null' => false,
+            ),
+        ),
+        'primary key' => array('id'),
+    );
+
+    return $schema;
+}

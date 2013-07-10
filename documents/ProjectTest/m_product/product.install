@@ -1,0 +1,206 @@
+<?php
+
+/**
+ * @file
+ * Module file for Product module.
+ *
+ * Part of the Product for Developers project.
+ */
+
+/**
+ * Implements hook_install
+ */
+function product_install()
+{
+    node_types_rebuild();
+
+    foreach (_product_installed_fields() as $field) {
+        field_create_field($field);
+    }
+
+    foreach (_product_installed_instances() as $instance) {
+        $instance['entity_type'] = 'node';
+        $instance['bundle'] = 'product';
+        field_create_instance($instance);
+    }
+}
+
+/**
+ * create field for product type
+ * @return type
+ */
+function _product_installed_fields()
+{
+    return array(
+        'product_category_product' => array(
+            'field_name' => 'product_category_product',
+            'type' => 'taxonomy_term_reference',
+            'settings' => array(
+                'allowed_values' => array(
+                    array(
+                        'vocabulary' => 'category_product',
+                        'parent' => 0,
+                    ),
+                ),
+            ),
+        ),
+        'product_description' => array(
+            'field_name' => 'product_description',
+            'type' => 'text_with_summary',
+        ),
+        'product_image' => array(
+            'field_name' => 'product_image',
+            'label' => 'Image',
+            'cardinality' => 1,
+            'type' => 'image',
+            'settings' => array(
+                'default_image' => 0,
+                'uri_scheme' => 'public',
+            ),
+        ),
+    );
+}
+
+/**
+ * Options callback for simple_content_type_checkboxes field
+ * @return - returns an indexed array as integer => string
+ */
+function _get_options_list_cat()
+{
+    $vocab = taxonomy_vocabulary_machine_name_load('category_product');
+    $vid = $vocab->vid;
+    $results = db_select('taxonomy_term_data', 't')
+            ->fields('t', array('tid', 'name'))
+            ->condition("t.vid", $vid)
+            ->execute();
+
+    $options = array();
+    foreach ($results as $term) {
+        $options[$term->tid] = $term->name;
+    }
+    return $options;
+}
+
+/**
+ *  create install of product
+ * @return type
+ */
+function _product_installed_instances()
+{
+    return array(
+        'product_category_product' => array(
+            'field_name' => 'product_category_product',
+            'entity_type' => 'node',
+            'label' => 'Product Category',
+            'bundle' => 'product',
+            'required' => TRUE,
+            'widget' => array(
+                'type' => 'options_select',
+            ),
+            'display' => array(
+                'default' => array(
+                    'type' => 'taxonomy_term_reference_link',
+                    'weight' => 1,
+                ),
+                'teaser' => array(
+                    'type' => 'taxonomy_term_reference_link',
+                    'weight' => 1,
+                ),
+            ),
+        ),
+        'product_description' => array(
+            'field_name' => 'product_description',
+            'label' => t('Description'),
+            'widget' => array(
+                'type' => 'text_textarea_with_summary',
+            ),
+            'settings' => array('display_summary' => TRUE),
+            'display' => array(
+                'example_node_list' => array(
+                    'label' => t('Description'),
+                    'type' => 'text_long',
+                ),
+                'default' => array(
+                    'label' => 'hidden',
+                    'type' => 'text_default',
+                ),
+                'teaser' => array(
+                    'label' => 'hidden',
+                    'type' => 'text_summary_or_trimmed',
+                ),
+            ),
+        ),
+        'product_image' => array(
+            'field_name' => 'product_image',
+            'label' => 'Image',
+            'cardinality' => 1,
+            'type' => 'product_image',
+            'settings' => array(
+                'alt_field' => 1,
+                'file_directory' => 'image',
+                'file_extensions' => 'png gif jpg jpeg',
+                'max_filesize' => '',
+                'max_resolution' => '',
+                'min_resolution' => '',
+                'title_field' => 1,
+                'user_register_form' => FALSE,
+            ),
+            'widget' => array(
+                'settings' => array(
+                    'preview_image_style' => 'thumbnail',
+                    'progress_indicator' => 'throbber',
+                ),
+            ),
+            'display' => array(
+                'default' => array(
+                    'label' => 'hidden',
+                    'type' => 'image',
+                    'settings' => array('image_style' => 'bfi_common_features_image', 'image_link' => ''),
+                    'weight' => -1,
+                ),
+                'teaser' => array(
+                    'label' => 'hidden',
+                    'type' => 'image',
+                    'settings' => array('image_style' => 'thumbnail', 'image_link' => 'content'),
+                    'weight' => -1,
+                ),
+            ),
+        ),
+    );
+}
+
+/**
+ * Implements hook_uninstall().
+ */
+function product_uninstall()
+{
+    // Gather all the example content that might have been created while this
+    // module was enabled.
+    $sql = 'SELECT nid FROM {node} n WHERE n.type = :type';
+    $result = db_query($sql, array(':type' => 'product'));
+    $nids = array();
+    foreach ($result as $row) {
+        $nids[] = $row->nid;
+    }
+    // Delete all the nodes at once
+    node_delete_multiple($nids);
+
+    // Loop over each of the fields defined by this module and delete
+    // all instances of the field, their data, and the field itself.
+    foreach (array_keys(_product_installed_fields()) as $field) {
+        field_delete_field($field);
+    }
+
+    // Loop over any remaining field instances attached to the job_post
+    // content type (such as the body field) and delete them individually.
+    $instances = field_info_instances('node', 'product');
+    foreach ($instances as $instance_name => $instance) {
+        field_delete_instance($instance);
+    }
+
+    // Delete our content type
+    node_type_delete('product');
+
+    // Purge all field infromation
+    field_purge_batch(1000);
+}

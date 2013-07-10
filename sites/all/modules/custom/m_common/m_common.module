@@ -1,0 +1,686 @@
+<?php
+
+function m_common_init()
+{
+    global $user;
+    if (!isset($_COOKIE['pasteur_visitors'])) {
+        $totalVisitors = variable_get('total_visitors');
+        $totalVisitors += 1;
+        variable_set('total_visitors', $totalVisitors);
+        setcookie('pasteur_visitors', 'true', 0);
+    }
+}
+
+function m_common_theme()
+{
+    return array(
+        'm_pager' => array(
+            'variables' => array('tags' => array(), 'element' => 0, 'parameters' => array(), 'quantity' => 9),
+        ),
+        'm_pager_previous' => array(
+            'variables' => array('text' => NULL, 'element' => 0, 'interval' => 1, 'parameters' => array()),
+        ),
+        'm_pager_next' => array(
+            'variables' => array('text' => NULL, 'element' => 0, 'interval' => 1, 'parameters' => array()),
+        ),
+        'm_pager_link' => array(
+            'variables' => array('text' => NULL, 'page_new' => NULL, 'element' => NULL, 'parameters' => array(), 'attributes' => array()),
+        ),
+        'menu_tree_block_left' => array(
+            'render element' => 'element'
+        ),
+        'menu_tree_common' => array(
+            'render element' => 'element'
+        ),
+        'menu_tree_footer' => array(
+            'render element' => 'element',
+        ),
+        'common_form' => array(
+            'render element' => 'element'
+        ),
+        'block_footer' => array(
+            'render element' => 'element',
+            'template' => 'block-footer',
+        ),
+        'm_taxonomy_term' => array(
+            'render element' => 'element',
+            'template' => 'm-taxonomy-term',
+        ),
+    );
+}
+
+function m_common_menu()
+{
+    $items = array();
+
+    $items['admin/common'] = array(
+        'title' => t('Settings'),
+        'page callback' => 'drupal_get_form',
+        'page arguments' => array('common_setting_form'),
+        'access arguments' => array('administer site configuration'),
+        'file' => 'm_common.admin.inc'
+    );
+
+    $items['admin/common/list'] = array(
+        'title' => t('Default'),
+        'weight' => -1,
+        'type' => MENU_DEFAULT_LOCAL_TASK
+    );
+
+    /*
+      $items['admin/common/homepage']=array(
+      'title' => t('Homepage'),
+      'description' => t('Setting static content '),
+      'page callback' => 'drupal_get_form',
+      'page arguments' => array('variable_group_form', 'm_common'),
+      'access arguments' => array('administer site configuration'),
+      'type' => MENU_LOCAL_TASK
+      );
+
+      $items['admin/common/footer']=array(
+      'title' => t('Footer'),
+      'description' => t('Setting static footer '),
+      'page callback' => 'drupal_get_form',
+      'page arguments' => array('variable_group_form', 'm_common_footer'),
+      'access arguments' => array('administer site configuration'),
+      'type' => MENU_LOCAL_TASK
+      );
+
+      $items['admin/common/recruitment']=array(
+      'title' => t('Recruitment'),
+      'description' => t('Setting static for page Recruitment '),
+      'page callback' => 'drupal_get_form',
+      'page arguments' => array('variable_group_form', 'm_content_recruitment'),
+      'access arguments' => array('administer site configuration'),
+      'type' => MENU_LOCAL_TASK
+      ); */
+
+    return $items;
+}
+
+function m_common_menu_alter(&$items)
+{
+    $items['taxonomy/term/%taxonomy_term']['page callback'] = 'm_common_taxonomy_term_page';
+    $items['taxonomy/term/%taxonomy_term']['title callback'] = 'm_common_term_name';
+    $items['taxonomy/term/%taxonomy_term']['file'] = 'm_common.pages.inc';
+    $items['taxonomy/term/%taxonomy_term']['module'] = 'm_common';
+}
+
+function m_common_term_name($term, $langcode = NULL)
+{
+    return i18n_taxonomy_vocabulary_mode($term->vid, I18N_MODE_LOCALIZE) ? i18n_string(array('taxonomy', 'term', $term->tid, 'name'), $term->name, array('langcode' => $langcode, 'sanitize' => FALSE)) : $term->name;
+}
+
+function template_preprocess_m_taxonomy_term(&$variables)
+{
+    $variables['term'] = $variables['element']['#term'];
+    $variables['nodes'] = array();
+    if (isset($variables['element']['#nodes'])) {
+        $variables['nodes'] = $variables['element']['#nodes'];
+    }
+    $term = $variables['term'];
+    $variables['term_name'] = check_plain($term->name);
+
+    $variables['content'] = array();
+    foreach (element_children($variables['element']) as $key) {
+        $variables['content'][$key] = $variables['element'][$key];
+    }
+
+    $variables['theme_hook_suggestions'][] = 'm_taxonomy_term__' . $term->vocabulary_machine_name;
+    $variables['theme_hook_suggestions'][] = 'm_taxonomy_term__' . $term->tid;
+}
+
+function theme_menu_tree_block_left($variables)
+{
+    return '<ul class="sidebar-left-nav">' . $variables['element']['#children'] . '</ul>';
+}
+
+function theme_menu_tree_common($variables)
+{
+    if ($variables['element']['#children'] == '') {
+        return '';
+    }
+    return '<ul class="tree-menu">' . $variables['element']['#children'] . '</ul>';
+}
+
+function theme_menu_tree_footer($variables)
+{
+    return '<ul>' . $variables['element']['#children'] . '</ul>';
+}
+
+function theme_common_form($variables)
+{
+    $element = $variables['element'];
+    if (isset($element['#action'])) {
+        $element['#attributes']['action'] = drupal_strip_dangerous_protocols($element['#action']);
+    }
+    element_set_attributes($element, array('method', 'id'));
+    if (empty($element['#attributes']['accept-charset'])) {
+        $element['#attributes']['accept-charset'] = "UTF-8";
+    }
+    // Anonymous DIV to satisfy XHTML compliance.
+    return '<form' . drupal_attributes($element['#attributes']) . '>' . $element['#children'] . '</form>';
+}
+
+#BEGIN block for common
+
+function m_common_block_info()
+{
+    $blocks = array();
+    $blocks['block_common_left'] = array(
+        'info' => t('Block common for left'),
+        'status' => TRUE,
+        'region' => 'sidebar_left',
+        'weight' => 100
+    );
+
+    $blocks['block_footer'] = array(
+        'info' => t('Block Footer'),
+        'status' => TRUE,
+        'region' => 'footer'
+    );
+
+    return $blocks;
+}
+
+function m_common_block_view($block_name = '')
+{
+    global $language;
+    switch ($block_name) {
+        case 'block_common_left':
+            $sql = "SELECT nid FROM {node} WHERE type='links_website' AND status =1";
+            $nids = db_query($sql)->fetchAll();
+            $links = '<option value="">---' . t('Link website') . '---</option>';
+            if (count($nids) > 0) {
+
+                foreach ($nids as $nid) {
+                    $node = node_load($nid->nid);
+                    $field_link = field_get_items('node', $node, 'field_links');
+                    $links.='<option value="' . $field_link[0]['value'] . '">' . $node->title . '</option>';
+                }
+            }
+
+            $content = ' <div class="gift"><a href="' . url('publications/term/' . date('Y', REQUEST_TIME)) . '" title="' . t('Publication') . '" class="ui-button button-type-01">' . t('Publication') . '</a></div>
+                  <div class="select-type-01">
+                    <span> --- ' . t('Link website') . ' --- </span>
+                    <span class="option-btn" title="' . t('Select', array(), array('context' => 'custom')) . '"></span>
+                 	  <select name="txtName6" id="lienketsite">
+                     ' . $links . '
+                    </select>
+             	    </div>  ';
+
+            $block['content'] = $content;
+            break;
+
+        case 'block_footer':
+
+            #menu pasteur insitute
+            $tree = menu_tree_page_data('menu-left-pasteur', 1);
+            $tree = i18n_menu_localize_tree($tree, i18n_langcode());
+            $menu_pasteur_insitute = menu_tree_output($tree);
+            $menu_pasteur_insitute['#theme_wrappers'] = array('menu_tree_footer');
+
+            #menu news
+            $categories = taxonomy_get_tree(2);
+            $html = '<ul>';
+            if (!empty($categories)) {
+                foreach ($categories as $key => $cate) {
+                    $html .= '<li><a href="' . url('taxonomy/term/' . $cate->tid) . '" title="' . $cate->name . '">' . $cate->name . '</a></li>';
+                }
+            }
+            $html .= '</ul>';
+
+
+            $total_visitors = variable_get('total_visitors');
+            $char_array = preg_split('//', $total_visitors, -1, PREG_SPLIT_NO_EMPTY);
+            $vistors = '<ul class="counter">';
+            foreach ($char_array as $k => $v) {
+                $vistors.='<li ' . ($k == 0 ? 'class="first"' : NULL) . '>' . $v . "</li>";
+            }
+            $vistors.='</ul>';
+
+            $footer_content = variable_get_value('m_footer', array('value' => ''));
+
+            $block['content'] = array(
+                'menu_pasteur_insitute' => $menu_pasteur_insitute,
+                'menu_news' => $html,
+                'vistors' => $vistors,
+                'footer_content' => $footer_content,
+                '#theme' => 'block_footer'
+            );
+            break;
+    }
+    return $block;
+}
+
+#END block for common
+
+function m_common_form_user_login_alter(&$form, &$form_state, $form_id)
+{
+    $form['#prefix'] = '<div class="user-page page">';
+    $form['#submit'] = array('m_user_login_submit');
+    $form['#suffix'] = '</div>';
+    $form['actions']['submit']['#value'] = '';
+    $form['#theme_wrappers'] = array('common_form');
+}
+
+function m_user_login_submit($form, &$form_state)
+{
+    global $user;
+    $user = user_load($form_state['uid']);
+    $url = 'user/' . $user->uid;
+    if (user_access('administer permissions')) {
+        $url = 'admin/dashboard';
+    }
+    $form_state['redirect'] = $url;
+    user_login_finalize($form_state);
+}
+
+#BEGIN custom language switcher
+
+function m_common_language_switch_links_alter(array &$links, $type, $path)
+{
+    global $language;
+    $path_arr = preg_split('/\//', $path);
+    if (count($path_arr) < 2) {
+        return;
+    }
+
+    if (($path_arr[0] == 'health-education' ||
+            $path_arr[0] == 'scientific-research' ||
+            $path_arr[0] == 'public-health' ) && is_numeric($path_arr[1])
+    ) {
+        $i18n_tsid = m_menu_link_load($path_arr[1]);
+
+        foreach ($links as $langcode => & $link) {
+            switch ($i18n_tsid['i18n_tsid']) {
+                case 0:
+                    break;
+                default:
+                    $mlid = m_menu_load_mlid($i18n_tsid['i18n_tsid'], $langcode);
+                    if (isset($mlid[0])) {
+                        $link['href'] = $path_arr[0] . '/' . $mlid[0];
+                    }
+            }
+            if (!m_check_access_menu($link['href'], $langcode)) {
+                unset($links[$langcode]['href']);
+            }
+        }
+    }
+}
+
+function m_common_menu_link_insert($link)
+{
+    module_load_include('inc', 'pathauto', 'pathauto');
+    $m_path = array(
+        'menu-health-education' => 'health-education',
+        'menu-scientific-research' => 'scientific-research',
+        'menu-public-health' => 'public-health',
+    );
+
+    if (isset($m_path[$link['menu_name']])) {
+        $path = array(
+            'source' => $m_path[$link['menu_name']] . '/' . $link['mlid'],
+            'alias' => $m_path[$link['menu_name']] . '/' . pathauto_cleanstring($link['link_title']),
+            'language' => $link['language']
+        );
+        path_save($path);
+    }
+}
+
+function m_common_menu_link_update($link)
+{
+    module_load_include('inc', 'pathauto', 'pathauto');
+    $m_path = array(
+        'menu-health-education' => 'health-education',
+        'menu-scientific-research' => 'scientific-research',
+        'menu-public-health' => 'public-health',
+    );
+
+    if (isset($m_path[$link['menu_name']])) {
+        $path = array(
+            'source' => $m_path[$link['menu_name']] . '/' . $link['mlid'],
+            'alias' => $m_path[$link['menu_name']] . '/' . pathauto_cleanstring($link['link_title']),
+            'language' => $link['language']
+        );
+        path_save($path);
+    }
+}
+
+#will hook path auto aliase later
+
+function m_check_access_menu($path, $langcode)
+{
+    $path_arr = preg_split('/\//', $path);
+    if (count($path_arr) < 2) {
+        return false;
+    }
+
+    $item = m_i18n_menu_link_load($path_arr[1], $langcode);
+    if (!$item || (isset($item['localized_options']['langcode']) && $item['localized_options']['langcode'] != $langcode )
+            || $item['hidden'] == 1) {
+        return false;
+    }
+    return true;
+}
+
+function m_i18n_menu_link_load($mlid, $langcode)
+{
+    if (is_numeric($mlid)) {
+        $query = db_select('menu_links', 'ml');
+        $query->leftJoin('menu_router', 'm', 'm.path = ml.router_path');
+        $query->fields('ml');
+        // Weight should be taken from {menu_links}, not {menu_router}.
+        $query->addField('ml', 'weight', 'link_weight');
+        $query->fields('m');
+        $query->condition('ml.mlid', $mlid);
+        $query->condition('ml.language', $langcode);
+        if ($item = $query->execute()->fetchAssoc()) {
+            $item['weight'] = $item['link_weight'];
+            _menu_link_translate($item);
+            return $item;
+        }
+    }
+    return FALSE;
+}
+
+function m_menu_link_load($mlid)
+{
+    if (is_numeric($mlid)) {
+        $query = db_select('menu_links', 'ml');
+        $query->fields('ml', array('i18n_tsid', 'mlid'));
+        $query->condition('ml.mlid', $mlid);
+        return $query->execute()->fetchAssoc();
+    }
+    return FALSE;
+}
+
+function m_menu_load_mlid($tsid, $langcode)
+{
+    $query = db_select('menu_links', 'ml');
+    $query->fields('ml', array('mlid'));
+    $query->condition('ml.i18n_tsid', $tsid);
+    $query->condition('ml.language', $langcode);
+    return $query->execute()->fetchCol();
+}
+
+#END custom language swticher
+
+function create_file_oject($source)
+{
+    global $user;
+    if (empty($_FILES['files']['name'][$source])) {
+        return false;
+    }
+    $file = new stdClass();
+    $file->uid = $user->uid;
+    $file->status = 0;
+    $file->filename = trim(drupal_basename($_FILES['files']['name'][$source]), '.');
+    $file->uri = $_FILES['files']['tmp_name'][$source];
+    $file->filemime = file_get_mimetype($file->filename);
+    $file->filesize = $_FILES['files']['size'][$source];
+    return $file;
+}
+
+function set_active_menu($path)
+{
+    $menu_item = menu_get_item($path);
+    $menu_item['href'] = $path;
+    menu_set_item(NULL, $menu_item);
+}
+
+#END custom block footer
+#BEGIN theme pager
+
+function theme_m_pager($variables)
+{
+    $tags = $variables['tags'];
+    $element = $variables['element'];
+    $parameters = $variables['parameters'];
+    $quantity = $variables['quantity'];
+    global $pager_page_array, $pager_total;
+
+    // Calculate various markers within this pager piece:
+    // Middle is used to "center" pages around the current page.
+    $pager_middle = ceil($quantity / 2);
+    // current is the page we are currently paged to
+    $pager_current = $pager_page_array[$element] + 1;
+    // first is the first page listed by this pager piece (re quantity)
+    $pager_first = $pager_current - $pager_middle + 1;
+    // last is the last page listed by this pager piece (re quantity)
+    $pager_last = $pager_current + $quantity - $pager_middle;
+    // max is the maximum page number
+    $pager_max = $pager_total[$element];
+    // End of marker calculations.
+    // Prepare for generation loop.
+    $i = $pager_first;
+    if ($pager_last > $pager_max) {
+        // Adjust "center" if at end of query.
+        $i = $i + ($pager_max - $pager_last);
+        $pager_last = $pager_max;
+    }
+    if ($i <= 0) {
+        // Adjust "center" if at start of query.
+        $pager_last = $pager_last + (1 - $i);
+        $i = 1;
+    }
+    // End of generation loop preparation.
+    $image_path = base_path() . drupal_get_path('theme', 'pasteur') . '/images';
+    $li_previous = theme('m_pager_previous', array('text' => (isset($tags[1]) ? $tags[1] : '<img src="' . $image_path . '/transparent.png" alt="pre" class="ui-icon init-icon-10"/>'), 'element' => $element, 'interval' => 1, 'parameters' => $parameters));
+    $li_next = theme('m_pager_next', array('text' => (isset($tags[3]) ? $tags[3] : '<img src="' . $image_path . '/transparent.png" alt="next" class="ui-icon init-icon-11"/>'), 'element' => $element, 'interval' => 1, 'parameters' => $parameters));
+
+    if ($pager_total[$element] > 1) {
+
+        if ($li_previous) {
+            $items[] = array(
+                'class' => array('pager-previous'),
+                'data' => $li_previous,
+            );
+        }
+
+        // When there is more than one page, create the pager list.
+        if ($i != $pager_max) {
+            if ($i > 1) {
+                $items[] = array(
+                    'class' => array('blank'),
+                    'data' => '<span>...</span>',
+                );
+            }
+            // Now generate the actual pager piece.
+            for (; $i <= $pager_last && $i <= $pager_max; $i++) {
+                if ($i < $pager_current) {
+                    $items[] = array(
+                        'class' => array('pager-item'),
+                        'data' => theme('pager_previous', array('text' => $i, 'element' => $element, 'interval' => ($pager_current - $i), 'parameters' => $parameters)),
+                    );
+                }
+                if ($i == $pager_current) {
+                    $items[] = array(
+                        'class' => array('current'),
+                        'data' => '<a href="javascript:void(0)" title="' . $i . '">' . $i . '</a>',
+                    );
+                }
+                if ($i > $pager_current) {
+                    $items[] = array(
+                        'class' => array('pager-item'),
+                        'data' => theme('pager_next', array('text' => $i, 'element' => $element, 'interval' => ($i - $pager_current), 'parameters' => $parameters)),
+                    );
+                }
+            }
+            if ($i < $pager_max) {
+                $items[] = array(
+                    'class' => array('blank'),
+                    'data' => '<span>...</span>',
+                );
+            }
+        }
+        // End generation.
+        if ($li_next) {
+            $items[] = array(
+                'class' => array('pager-next'),
+                'data' => $li_next,
+            );
+        }
+
+        return theme('item_list', array(
+                    'items' => $items,
+                    'attributes' => array('class' => array()),
+                ));
+    }
+}
+
+function theme_m_pager_previous($variables)
+{
+    $text = $variables['text'];
+    $element = $variables['element'];
+    $interval = $variables['interval'];
+    $parameters = $variables['parameters'];
+    global $pager_page_array;
+    $output = '';
+
+    // If we are anywhere but the first page
+    if ($pager_page_array[$element] > 0) {
+        $page_new = pager_load_array($pager_page_array[$element] - $interval, $element, $pager_page_array);
+
+        // If the previous page is the first page, mark the link as such.
+        if ($page_new[$element] == 0) {
+            if ($pager_page_array[$element] > 0) {
+                $output = theme('m_pager_link', array('text' => $text, 'page_new' => pager_load_array(0, $element, $pager_page_array), 'element' => $element, 'parameters' => $parameters));
+            }
+            #$output = theme('pager_first', array('text' => $text, 'element' => $element, 'parameters' => $parameters));
+        }
+        // The previous page is not the first page.
+        else {
+            $output = theme('m_pager_link', array('text' => $text, 'page_new' => $page_new, 'element' => $element, 'parameters' => $parameters));
+        }
+    }
+
+    return $output;
+}
+
+function theme_m_pager_next($variables)
+{
+    $text = $variables['text'];
+    $element = $variables['element'];
+    $interval = $variables['interval'];
+    $parameters = $variables['parameters'];
+    global $pager_page_array, $pager_total;
+    $output = '';
+
+    // If we are anywhere but the last page
+    if ($pager_page_array[$element] < ($pager_total[$element] - 1)) {
+        $page_new = pager_load_array($pager_page_array[$element] + $interval, $element, $pager_page_array);
+        // If the next page is the last page, mark the link as such.
+        if ($page_new[$element] == ($pager_total[$element] - 1)) {
+            if ($pager_page_array[$element] < ($pager_total[$element] - 1)) {
+                $output = theme('m_pager_link', array('text' => $text, 'page_new' => pager_load_array($pager_total[$element] - 1, $element, $pager_page_array), 'element' => $element, 'parameters' => $parameters));
+            }
+            #$output = theme('pager_last', array('text' => $text, 'element' => $element, 'parameters' => $parameters));
+        }
+        // The next page is not the last page.
+        else {
+            $output = theme('m_pager_link', array('text' => $text, 'page_new' => $page_new, 'element' => $element, 'parameters' => $parameters));
+        }
+    }
+
+    return $output;
+}
+
+function theme_m_pager_link($variables)
+{
+    $text = $variables['text'];
+    $page_new = $variables['page_new'];
+    $element = $variables['element'];
+    $parameters = $variables['parameters'];
+    $attributes = $variables['attributes'];
+
+    $page = isset($_GET['page']) ? $_GET['page'] : '';
+    if ($new_page = implode(',', pager_load_array($page_new[$element], $element, explode(',', $page)))) {
+        $parameters['page'] = $new_page;
+    }
+
+    $query = array();
+    if (count($parameters)) {
+        $query = drupal_get_query_parameters($parameters, array());
+    }
+    if ($query_pager = pager_get_query_parameters()) {
+        $query = array_merge($query, $query_pager);
+    }
+
+    // Set each pager link title
+    if (!isset($attributes['title'])) {
+        static $titles = NULL;
+        if (!isset($titles)) {
+            $titles = array(
+                t('« first') => t('Go to first page'),
+                t('‹ previous') => t('Go to previous page'),
+                t('next ›') => t('Go to next page'),
+                t('last »') => t('Go to last page'),
+            );
+        }
+        if (isset($titles[$text])) {
+            $attributes['title'] = $titles[$text];
+        } elseif (is_numeric($text)) {
+            $attributes['title'] = t('Go to page @number', array('@number' => $text));
+        }
+    }
+
+    // @todo l() cannot be used here, since it adds an 'active' class based on the
+    //   path only (which is always the current path for pager links). Apparently,
+    //   none of the pager links is active at any time - but it should still be
+    //   possible to use l() here.
+    // @see http://drupal.org/node/1410574
+    $attributes['href'] = url($_GET['q'], array('query' => $query));
+    return '<a' . drupal_attributes($attributes) . '>' . $text . '</a>';
+}
+
+#END theme pager
+
+function m_common_form_taxonomy_form_term_alter(&$form, &$form_state, $form_id)
+{
+    if (isset($form['language']['#options'])) {
+        #$form['language']['#default_value']='vi';
+        unset($form['language']['#options']['und']);
+    }
+}
+
+function m_common_form_pasteur_institute_node_form_alter(&$form, &$form_state, $form_id)
+{
+    $default_value = 0;
+    if (isset($form['#node']->sticky)) {
+        $default_value = $form['#node']->sticky;
+    }
+    $form['m_weight'] = array(
+        '#type' => 'textfield',
+        '#title' => t('Weight'),
+        '#description' => t('Order by desc for node of "category director board" below  '),
+        '#default_value' => $default_value,
+        '#weight' => 0,
+        '#attributes' => array(
+            'style' => 'width:50px'
+        ),
+    );
+    $form['actions']['submit']['#submit'][] = 'm_comm_pasteur_institue_weight';
+}
+
+function m_comm_pasteur_institue_weight($form, $form_state)
+{
+    $m_weight = $form_state['values']['m_weight'];
+    $query = db_update('node')->fields(array(
+                'sticky' => $m_weight
+            ))->condition('nid', $form_state['node']->nid)->execute();
+
+    $query = db_update('taxonomy_index')->fields(array(
+                'sticky' => $m_weight
+            ))->condition('nid', $form_state['node']->nid)->execute();
+}
+
+function m_common_node_load($nodes, $type)
+{
+    $sql = "SELECT sticky FROM {node} WHERE nid = :nid ";
+    foreach ($nodes as $node) {
+        $sticky = db_query($sql, array(':nid' => $node->nid))->fetchField();
+        $node->sticky = $sticky;
+    }
+}
+

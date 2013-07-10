@@ -1,0 +1,207 @@
+<?php
+
+function m_publications_menu()
+{
+	$items = array();
+	$items['publications/term/%myear/%taxonomy_term'] = array(
+		'page callback' => 'get_list_publications',
+		'page arguments' => array(2, 3),
+		'access callback' => TRUE,
+		'type' => MENU_CALLBACK,
+	);
+	$items['publications/term/%myear'] = array(
+		'page callback' => 'get_list_publications',
+		'page arguments' => array(2),
+		'access callback' => TRUE,
+		'type' => MENU_CALLBACK,
+	);
+	return $items;
+}
+
+function myear_load($year){
+
+	if(!preg_match('/^([1-9]{1}[0-9]{3,})$/',$year)){
+			return false;
+	}
+	return $year;
+}
+
+function get_list_publications($year, $term = NULL)
+{
+	if ($term == NULL) {
+		#get Id first in taxonomy
+		$taxonomy = get_taxonomy_publication(9, $year);
+		$id = 0;
+		if ($taxonomy) {
+			$id = $taxonomy[0]->tid;
+			$term=taxonomy_term_load($id);
+		} else {
+                    return t('There is currently no content classified with this term.');
+                }
+
+	}
+
+
+
+	$field_year_publication=false;
+	if($term){
+		$field_year_publication= field_get_items('taxonomy_term',$term,'field_year_publication');
+	}
+	if(!$term || $term->vid != 9 || !$field_year_publication || date('Y',$field_year_publication[0]['value']) != $year ){
+		drupal_access_denied();
+		drupal_exit();
+	}
+
+
+	$nids = taxonomy_select_nodes($term->tid, $pager = FALSE, $limit = FALSE);
+	if(!$nids){
+		return '<div class="publications-page">
+						<h2 class="page-title1">
+        <span class="inner-title">
+            <span>'.check_plain($term->name).'</span></span></h2>
+						<div class="content">'.t('No content')."</div>";
+
+	}
+
+	return theme('publication_list', array('nodes' => $nids, 'term' => $term->tid, 'year' => $year));
+}
+function m_publications_theme($existing, $type, $theme, $path)
+{
+	$theme_hooks = array(
+		'publication_list' => array(
+			'path' => drupal_get_path('module', 'm_publications'),
+			'template' => 'templates/list',
+			'variables' => array('data' => NULL, 'term' => NULL),
+		),
+	);
+	return $theme_hooks;
+}
+function m_publications_block_info()
+{
+	$blocks['block_publication'] = array(
+		'info' => t('Block Publication Left'),
+		'status' => TRUE,
+		'region' => 'sidebar_left',
+		'visibility' => BLOCK_VISIBILITY_LISTED,
+		'pages' => implode("\n", array(
+			'publications',
+			'publications/*',
+		)),
+	);
+
+	return $blocks;
+}
+function get_year_publication()
+{
+	global $language_content;
+	$query = db_select('field_revision_field_year_publication', 'y');
+	$query->condition('bundle', 'publications_menu');
+	$query->leftjoin('taxonomy_term_data', 't', 'y.revision_id= t.tid');
+	$query->condition('t.language', $language_content->language);
+	$query->addExpression("DATE_FORMAT(FROM_UNIXTIME(y.field_year_publication_value),'%Y' )", 'year');
+	$query->orderby('year', 'ASC');
+	$query->distinct();
+	$result = $query->execute()->fetchCol();
+	return $result;
+
+}
+
+function get_taxonomy_publication($id, $year)
+{
+	global $language_content;
+
+	$query = db_select('taxonomy_term_data', 't');
+	$query->leftjoin('field_revision_field_year_publication', 'p', 'p.revision_id= t.tid');
+	$query->condition('vid', $id);
+	$query->condition('t.language', $language_content->language);
+	$query->addExpression("DATE_FORMAT(FROM_UNIXTIME(p.field_year_publication_value),'%Y' )", 'year');
+	$query->fields('t', array('tid', 'name'));
+	$query->groupBy('t.tid');
+	$query->havingCondition('year', $year);
+	$result = $query->execute()->fetchAll();
+	return $result;
+}
+function m_publications_block_view($delta = '')
+{
+	global $language;
+	$img_path = base_path().drupal_get_path('theme', $GLOBALS['theme']);
+	$block = null;
+	$html = '';
+
+	switch ($delta) {
+
+		case 'block_publication':
+		$year = get_year_publication();
+
+		$html = '';
+		$p_year = (int) arg(2);
+		$p_tid = arg(3);
+
+		$node = explode('/', $_GET['q']);
+		if ($node[0] == 'node') {
+			if ($p_year == 0 && !empty($node[1])) {
+				$listnode = node_load($node[1]);
+				if (!empty($listnode->field_section_publications['und'])) {
+					$p_tid = $listnode->field_section_publications['und'][0]['tid'];
+				  $field_year_publication=field_get_items('taxonomy_term',taxonomy_term_load($p_tid),'field_year_publication');
+					$year_of_node=$p_year = format_date($field_year_publication[0]['value'], 'custom', 'Y');
+				}
+			}
+		}
+		if (!in_array($p_year, $year)) {
+			$block['content'] = NULL;
+			break;
+		}
+		if (!empty($year)) {
+			$next = '<a class="ui-form select-type-11" title="Next" href="#"></a>';
+			$prev = '<a class="ui-form select-type-10" title="Previous" href="#"></a>';
+			foreach ($year as $v) {
+				if ($v < $p_year) {
+					$prev = '<a class="ui-form select-type-10" title="Previous" href="'.url('publications/term/'.$v).'"></a>';
+				} elseif ($v > $p_year) {
+					$next = '<a class="ui-form select-type-11" title="Next" href="'.url('publications/term/'.$v).'"></a>';
+					break;
+				}
+			}
+
+			$html .= '<div class="select-year ">';
+			$html .= '';
+			$html .= $prev;
+
+			$html .= '<div class="form-type-01">';
+			$html .= '<span class="form-type-02">';
+			foreach ($year as $key => $y) {
+				if ($y == $p_year) {
+					$html .= '<input type="text" readonly="readonly" value="--- '.t('Year').' '.$y.' ---" name="txtName-year" id="txtName-year"/>';
+				}
+			}
+			$html .= '</span>';
+			$html .= '</div>';
+			$html .= $next;
+			$html .= '</div>';
+			if (isset($year_of_node)) {
+				$categories = get_taxonomy_publication(9, $year_of_node);
+			} else {
+				$categories = get_taxonomy_publication(9, arg(2));
+			}
+
+			$html1 = '';
+			if (!empty($categories)) {
+				$html1 .= '<ul class="sidebar-left-nav">';
+				foreach ($categories as $k => $items) {
+					$class="";
+					if($items->tid == $p_tid || ($p_tid == 0 && $k==0 )){
+						$class=" class='active-trail'";
+					}
+					$html1 .= '<li'.$class.'><a href="'.url('publications/term/'.$items->year.'/'.$items->tid).'" title="'.$items->name.'">'.$items->name.'</a></li>';
+				}
+				$html1 .= '</ul>';
+			}
+
+			$block['content'] = $html.$html1;
+		}
+		break;
+	}
+	return $block;
+}
+?>

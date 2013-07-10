@@ -1,0 +1,282 @@
+<?php
+function devmod_boot()
+{
+    global $user, $language;
+    if (!$user->uid && preg_match('/^admin(\/.*)?/i', $_GET['q'])) {
+        session_start();
+        $_SESSION['REDIRECT_URL'] = $_GET['q'];
+        header('Location: '.$GLOBALS['base_url'].'/user');
+        exit;
+    }
+    if ($user->uid && preg_match('/user$/i', $_GET['q'])) {
+        header('Location: '.$GLOBALS['base_url'].'/admin/dashboard');
+        exit();
+    }
+}
+
+function devmod_init()
+{
+    /* drupal_add_js(drupal_get_path('module', 'devmod').'/devmod.js');
+     if ($GLOBALS['theme'] != 'thehub') {
+     drupal_add_css(drupal_get_path('module', 'devmod').'/devmod.css');
+     } */
+}
+
+function devmod_permission()
+{
+    $perms = array(
+        'admin thehub bo' => array(
+            'title' => t('Thehub BackOffice'),
+        ),
+    );
+    return $perms;
+}
+
+function devmod_menu_access($perm, $type)
+{
+    return user_access($perm) && user_access('devmod '.$type);
+}
+
+function devmod_user_login(&$edit, $account)
+{
+    if ($account->uid == 1) {
+        drupal_goto('admin');
+    } elseif (array_key_exists(4, $account->roles)) {
+        drupal_goto('admin/dashboard');
+    }
+}
+function devmod_403_redirect()
+{
+    /*global $user;
+     if ($user->uid == 0) {
+     $dest = drupal_get_destination();
+     header('Location: '.url('login', array('absolute' => TRUE, 'query' => $dest)), TRUE, 302);
+     } else { //user is already logged in so just give the standard error page content.
+     drupal_set_title(t('403 Access Denied'));
+     return t('You are not authorized to access this page.');
+     }*/
+    drupal_set_title(t('403 Access Denied'));
+    return '<p class="txt-type-01">'.t('You are not authorized to access this page.').'</p>';
+}
+
+function devmod_404_redirect()
+{
+    /*global $user;
+     if ($user->uid == 0) {
+     $dest = drupal_get_destination();
+     header('Location: '.url('login', array('absolute' => TRUE, 'query' => $dest)), TRUE, 302);
+     } else { //user is already logged in so just give the standard error page content.
+     drupal_set_title(t('404 Access Denied'));
+     return t('You are not authorized to access this page.');
+     }*/
+    drupal_set_title(t('404 Access Denied'));
+    return '<p class="txt-type-01">'.t('You are not authorized to access this page').'</p>';
+}
+
+function devmod_menu()
+{
+    $items['403redirect'] = array(
+        'page callback' => 'devmod_403_redirect',
+        'access callback' => true,
+        'type' => MENU_CALLBACK,
+    );
+    $items['404redirect'] = array(
+        'page callback' => 'devmod_404_redirect',
+        'access callback' => true,
+        'type' => MENU_CALLBACK,
+    );
+    return $items;
+}
+
+function devmod_theme($existing, $type, $theme, $path)
+{
+    return array('custom_form' => array(
+        'render element' => 'element',
+        'function' => 'devmod_custom_form'
+    ),
+        'custom_form_element' => array(
+            'render element' => 'element',
+            'function' => 'devmod_custom_form_element'
+        ),
+    );
+}
+
+function devmod_custom_theme()
+{
+    global $user, $conf;
+    if (path_is_admin($_GET['q']) || preg_match('/(user\/\d+\/edit|admin\/.*|node\/\d+\/(edit|delete)|(node\/add))/i', $_GET['q'])) {
+        //if (array_key_exists(5, $user->roles) || array_key_exists(4, $user->roles)) {
+        //    $conf['theme_default'] = $conf['admin_theme'];
+        //} else {
+        $conf['theme_default'] = $conf['admin_theme'];
+        //}
+    } elseif (preg_match('/(user\/\d+\/edit|admin\/.*|(node|comment)\/\d+\/(edit|delete)|(node\/add))/i', $_GET['q'])) {
+        $conf['theme_default'] = $conf['admin_theme'];
+    }
+}
+
+function devmod_custom_form($variables)
+{
+    $element = $variables['element'];
+    if (!empty($element['#action'])) {
+        $element['#attributes']['action'] = drupal_strip_dangerous_protocols($element['#action']);
+    }
+    $element['#attributes']['method'] = $element['#method'];
+    if (empty($element['#attributes']['accept-charset'])) {
+        $element['#attributes']['accept-charset'] = "UTF-8";
+    }
+    $element['#attributes']['id'] = $element['#id'];
+    return '<form'.drupal_attributes($element['#attributes']).'>'.$element['#children'].'</form>';
+}
+
+function devmod_custom_form_element($variables)
+{
+    $element = $variables['element'];
+
+    if ($element['#type'] == 'textarea')
+        $element['#children'] = preg_replace('/.*(<textarea.*textarea>).*/i', '\1', $element['#children']);
+    // This is also used in the installer, pre-database setup.
+    $t = get_t();
+
+    // Add element #id for #type 'item'.
+    if (isset($element['#markup']) && !empty($element['#id'])) {
+        $attributes['id'] = $element['#id'];
+    }
+
+    // If #title is not set, we don't display any label or required marker.
+    if (!isset($element['#title'])) {
+        $element['#title_display'] = 'none';
+    }
+    if ($element['#type'] == 'password_confirm') {
+        $element['#title_display'] = 'password_confirm';
+    }
+    $prefix = isset($element['#field_prefix']) ? $element['#field_prefix'] : '';
+    $suffix = isset($element['#field_suffix']) ? $element['#field_suffix'] : '';
+    $output = '';
+    //print_r($element);die;
+    switch ($element['#title_display']) {
+    case 'before':
+        $output .= ' '.theme('form_element_label', $variables);
+        $output .= ' '.$prefix.$element['#children'].$suffix."\n";
+        break;
+
+    case 'invisible':
+    case 'after':
+        $output .= ' '.$prefix.$element['#children'].$suffix;
+        $output .= ' '.theme('form_element_label', $variables)."\n";
+        break;
+
+    case 'none':
+    case 'attribute':
+        // Output no label and no required marker, only the children.
+        $output .= ' '.$prefix.$element['#children'].$suffix."\n";
+        break;
+    case 'password_confirm':
+        $element['pass1']['#children'] = str_replace("\n", '', $element['pass1']['#children']);
+        $element['pass1']['#children'] = preg_replace('/.*(<input[^\/]+\/>).*/i', '\1', $element['pass1']['#children']);
+        $element['pass2']['#children'] = str_replace("\n", '', $element['pass2']['#children']);
+        $output .= $element['#prefix'].' '.theme('form_element_label', $element['pass1']).$prefix.preg_replace('/(class=")([^"]+)"/i', '\1"', $element['pass1']['#children']).$suffix."\n";
+        $output .= $element['#prefix'].' '.theme('form_element_label', $element['pass2']).$prefix.preg_replace('/.*(<input[^\/]+\/>).*/i', '\1', $element['pass2']['#children']).$suffix."\n";
+        break;
+    }
+
+    if (!empty($element['#description'])) {
+        $output .= ' <div class="description">'.$element['#description']."</div>\n";
+    }
+
+    return $output;
+}
+
+function devmod_teaser($string, $word_count = 100)
+{
+    $string = str_replace("\n", '', $string);
+    $string = preg_replace('/<style.*<\/style>/i', '', $string);
+    //$string = preg_replace('/&amp;/i','&',$string);
+    $trimmed = "";
+    $string = strip_tags($string);
+    $string = preg_replace("/\040+/", " ", trim($string));
+    $stringc = explode(" ", $string);
+    if ($word_count >= sizeof($stringc))
+        return $string; //nothing to do, our string is smaller than the limit.
+
+    // trim the string to the word count
+    for ($i = 0; $i < $word_count; $i++)
+        $trimmed .= $stringc[$i]." ";
+    if (substr($trimmed, strlen(trim($trimmed)) - 1, 1) == '.')
+        return trim($trimmed).' ..';
+    return trim($trimmed).' ...';
+}
+
+function devmod_unique_id($l = 10)
+{
+    return substr(md5(uniqid(mt_rand(), true)), 0, $l);
+}
+
+function devmod_get_taxonomy($vid)
+{
+    global $language;
+    //i18n_taxonomy_term_get_translations()
+    //$tree = i18n_taxonomy_get_tree($vid,$language->language);
+    //taxonomy_vocabulary_machine_name_load('type_of_content');
+    $tree = taxonomy_get_tree($vid);
+    $option = array();
+    $option[0] = 'Unknown';
+    foreach ($tree as $val)
+        $option[$val->tid] = str_repeat('-', $val->depth * 1).$val->name;
+    //unset($option[0]);
+    return $option;
+}
+
+function devmod_stripUnicode($str)
+{
+    if (!$str)
+        return false;
+    $unicode = array(
+        'a' => 'á|à|ả|ã|ạ|ă|ắ|ặ|ằ|ẳ|ẵ|â|ấ|ầ|ẩ|ẫ|ậ',
+        'd' => 'đ',
+        'e' => 'é|è|ẻ|ẽ|ẹ|ê|ế|ề|ể|ễ|ệ',
+        'i' => 'í|ì|ỉ|ĩ|ị',
+        'o' => 'ó|ò|ỏ|õ|ọ|ô|ố|ồ|ổ|ỗ|ộ|ơ|ớ|ờ|ở|ỡ|ợ',
+        'u' => 'ú|ù|ủ|ũ|ụ|ư|ứ|ừ|ử|ữ|ự',
+        'y' => 'ý|ỳ|ỷ|ỹ|ỵ',
+    );
+    foreach ($unicode as $nonUnicode => $uni)
+        $str = preg_replace("/($uni)/i", $nonUnicode, $str);
+    return $str;
+
+}
+function devmod_element_info_alter(&$types)
+{
+    if (!empty($types['text_format']['#pre_render'])) {
+        $types['text_format']['#pre_render'] = array_diff($types['text_format']['#pre_render'], array('ckeditor_pre_render_text_format'));
+    }
+    $types['text_format']['#pre_render'][] = 'devmod_ckeditor_pre_render_text_format';
+}
+
+function devmod_ckeditor_pre_render_text_format($element)
+{
+    static $init = FALSE;
+    if (!isset($element['#format'])) {
+        return $element;
+    }
+
+    module_load_include('inc', 'ckeditor', 'includes/ckeditor.lib');
+    if ($init === FALSE) {
+        $input_formats = ckeditor_profiles_compile();
+        drupal_add_js(array('ckeditor' => array('input_formats' => $input_formats, 'plugins' => array())), 'setting');
+        $init = TRUE;
+    }
+
+    if (isset($element['value'])) {
+        if (isset($element['summary'])) {
+            $element['value'] = ckeditor_load_by_field($element['value'], $element['format']['format'], TRUE, $element['summary']['#id']);
+            //$element['summary'] = ckeditor_load_by_field($element['summary'], $element['format']['format'], FALSE);
+        } else {
+            $element['value'] = ckeditor_load_by_field($element['value'], $element['format']['format']);
+        }
+    } else {
+        $element = ckeditor_load_by_field($element, $element['#format']);
+    }
+
+    return $element;
+}

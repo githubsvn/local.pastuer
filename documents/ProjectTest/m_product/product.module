@@ -1,0 +1,32 @@
+<?php
+/**
+ * @file
+ * Module file for Product module.
+ *
+ * Part of the Product for Developers project.
+ */
+
+/**
+ * Implements hook_node_info() to provide our job_post type.
+ */
+function product_node_info()
+{
+    return array(
+        'product' => array(
+            'name' => t('Product'),
+            'base' => 'product',
+            'description' => t('Use this content type product.'),
+            'has_title' => TRUE,
+            'title_label' => t('Product'),
+            'help' => t('Enter the product name, product description, product content for product.'),
+        ),
+    );
+}
+
+/**
+ * Implement hook_form() with the standard default form.
+ */
+function product_form($node, $form_state)
+{
+    return node_content_form($node, $form_state);
+}

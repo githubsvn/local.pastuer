@@ -1,0 +1,5 @@
+<?php
+
+	function m_menu_install() {
+	  db_query("UPDATE {system} SET weight = 100 WHERE name = 'm_menu' AND type = 'module'");
+	}

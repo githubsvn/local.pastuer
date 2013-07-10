@@ -1,0 +1,35 @@
+
+name = Pasteur
+description = A theme for layout pasteur
+package = Core
+version = VERSION
+core = 7.x
+
+stylesheets[screen][] = css/screen.css
+stylesheets[print][] = css/print.css
+
+scripts[] = js/lib.js
+scripts[] = js/util.js
+scripts[] = js/start.js
+
+
+regions[block_method]= Language Search Form
+regions[content] = Content
+regions[footer]  = Footer Site
+
+regions[slide_home]= Slide Image At Home
+regions[sidebar_top]= Sidebar -Top
+regions[sidebar_left] = Sidebar Left
+regions[sidebar_right]= Sidebar Right
+
+
+
+
+;settings[shortcut_module_link] = 0
+
+
+; Information added by drupal.org packaging script on 2012-05-02
+version = "7.14"
+project = "drupal"
+datestamp = "1335997555"
+

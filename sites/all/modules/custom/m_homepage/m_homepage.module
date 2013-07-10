@@ -1,0 +1,262 @@
+<?php
+
+function m_homepage_theme()
+{
+    return array(
+        'homepage_content' => array(
+            'render element' => 'element',
+            'template' => 'homepage-content',
+        ),
+        'homepage_block_top' => array(
+            'render element' => 'element',
+            'template' => 'homepage-block-top',
+        ),
+        'homepage_block_left' => array(
+            'render element' => 'element',
+            'template' => 'homepage-block-left',
+        ),
+        'homepage_block_right' => array(
+            'render element' => 'element',
+            'template' => 'homepage-block-right',
+        )
+    );
+}
+
+function m_homepage_menu()
+{
+    $items = array();
+
+    $items['homepage'] = array(
+        'title' => t('Home page'),
+        'page callback' => 'show_homepage',
+        'access arguments' => array('access content'),
+        'file' => 'm_homepage.page.inc',
+        'type' => MENU_CALLBACK
+    );
+
+    return $items;
+}
+
+# BEGIN :hook block
+
+function m_homepage_block_info()
+{
+    $blocks = array();
+
+    $blocks['homepage_block_top'] = array(
+        'info' => t('Block Slide At Home'),
+        'status' => TRUE,
+        'region' => 'slide_home',
+        'visibility' => BLOCK_VISIBILITY_LISTED,
+        'pages' => 'homepage',
+    );
+
+    $blocks['homepage_block_left'] = array(
+        'info' => t('Block Notice At Home'),
+        'status' => TRUE,
+        'region' => 'sidebar_left',
+        'visibility' => BLOCK_VISIBILITY_LISTED,
+        'pages' => 'homepage',
+    );
+
+    $blocks['homepage_block_right'] = array(
+        'info' => t('Block The Conference Flavor'),
+        'status' => TRUE,
+        'region' => 'sidebar_right',
+        'visibility' => BLOCK_VISIBILITY_LISTED,
+        'pages' => 'homepage',
+    );
+
+    return $blocks;
+}
+
+function m_homepage_block_view($block_name = '')
+{
+    $block = array();
+    $m_summary = '';
+
+    $field_arr = array(
+        'health_services' => 'field_health_services_image',
+        'health_education' => 'field_health_education_image',
+        'public_health' => 'field_public_health_image',
+        'news' => 'field_image',
+        'pasteur_institute' => 'field_pasteur_institute_image',
+        'scientific_research' => 'field_scientific_research_image',
+    );
+
+    switch ($block_name) {
+        case 'homepage_block_top':
+            $nodes = load_node_queue('event_highlights');
+            $result = array();
+            foreach ($nodes as $node) {
+                $m_field = isset($field_arr[$node->type]) ? $field_arr[$node->type] : 'field_image';
+                $image = field_get_items('node', $node, $m_field);
+                if ($image) {
+                    $l_image = image_style_url('image_689px_277px', $image[0]['uri']);
+                }
+
+                $summary = field_get_items('node', $node, 'body');
+                if ($summary) {
+                    $summary = field_view_value('node', $node, 'body', $summary[0], 'teaser');
+                    $m_summary = m_common_teaser($summary['#markup'], 10);
+                }
+                $title = check_plain($node->title);
+                $result[] = array(
+                    'nid' => $node->nid,
+                    'title' => m_common_teaser($title, 10),
+                    'title_full' => $title,
+                    'desc' => isset($m_summary) ? $m_summary : NULL,
+                    'image' => isset($l_image) ? $l_image : NULL
+                );
+            }
+
+            $block['content'] = array(
+                '#content' => $result,
+                '#theme' => 'homepage_block_top'
+            );
+            break;
+
+        case 'homepage_block_left':
+            $nodes = load_node_queue('notice', 1);
+            $result = array();
+
+            foreach ($nodes as $node) {
+
+                $m_field = isset($field_arr[$node->type]) ? $field_arr[$node->type] : 'field_image';
+                $image = field_get_items('node', $node, $m_field);
+
+                if ($image) {
+                    $l_image = image_style_url('image_90px_120px', $image[0]['uri']);
+                }
+
+                $summary = field_get_items('node', $node, 'body');
+
+                if ($summary) {
+                    $summary = field_view_value('node', $node, 'body', $summary[0], 'teaser');
+                    $m_summary = m_common_teaser($summary['#markup'], 10);
+                }
+
+
+
+                $title = check_plain($node->title);
+                $result[] = array(
+                    'nid' => $node->nid,
+                    'created' => $node->created,
+                    'title' => m_common_teaser($title, 8),
+                    'title_full' => $title,
+                    'desc' => isset($m_summary) ? $m_summary : NULL,
+                    'image' => isset($l_image) ? $l_image : NULL
+                );
+            }
+            $block['content'] = array(
+                '#content' => $result,
+                '#theme' => 'homepage_block_left'
+            );
+            break;
+
+        case 'homepage_block_right':
+            $nodes = load_node_queue('counselling', 3);
+            $result = array();
+
+            foreach ($nodes as $node) {
+
+                $m_field = isset($field_arr[$node->type]) ? $field_arr[$node->type] : 'field_image';
+                $image = field_get_items('node', $node, $m_field);
+
+                if ($image) {
+                    $l_image = image_style_url('image_86px_86px', $image[0]['uri']);
+                }
+
+                $summary = field_get_items('node', $node, 'body');
+                if ($summary) {
+                    $summary = field_view_value('node', $node, 'body', $summary[0], 'teaser');
+                    $m_summary = m_common_teaser($summary['#markup'], 8);
+                }
+                $title = check_plain($node->title);
+                $result[] = array(
+                    'nid' => $node->nid,
+                    'created' => $node->created,
+                    'title' => m_common_teaser($title, 10),
+                    'title_full' => $title,
+                    'desc' => isset($m_summary) ? $m_summary : NULL,
+                    'image' => isset($l_image) ? $l_image : NULL
+                );
+            }
+            $block['content'] = array(
+                '#content' => $result,
+                '#theme' => 'homepage_block_right'
+            );
+            break;
+    }
+    return $block;
+}
+
+# END :hook block
+
+function load_node_queue($name, $count = 3)
+{
+    $queue = nodequeue_load_queue_by_name($name);
+    if (empty($subqueue->sqid)) {
+        if ($queue->subqueues == 1) {
+            $subqueues = nodequeue_load_subqueues_by_queue($queue->qid);
+            $subqueue = array_shift($subqueues);
+        }
+    }
+
+    if ($subqueue) {
+        return m_nodequeue_load_nodes($subqueue->qid, $count);
+    }
+    return array();
+}
+
+function m_nodequeue_load_nodes($sqid, $backward = FALSE, $from = 0, $count = 5, $published_only = TRUE)
+{
+    $orderby = ($backward ? "DESC" : "ASC");
+    $query = db_select('node', 'n')
+            ->fields('n', array('nid'))
+            ->condition('nn.sqid', $sqid)
+            ->orderBy('nn.position', $orderby)
+            ->condition('n.language', array('und', i18n_langcode()), 'IN');
+
+    $query->join('nodequeue_nodes', 'nn', 'n.nid = nn.nid');
+
+    if ($published_only) {
+        $query->condition('n.status', 1);
+    }
+
+    if ($count) {
+        $result = $query->range($from, $count)->execute();
+    } else {
+        $result = $query->execute();
+    }
+
+    $nodes = array();
+    foreach ($result as $nid) {
+        $nodes[] = node_load($nid->nid);
+    }
+
+    return $nodes;
+}
+
+function m_common_teaser($string, $word_count = 100)
+{
+    $string = str_replace("\n", '', $string);
+    $string = preg_replace('/<style.*<\/style>/i', '', $string);
+    //$string = preg_replace('/&amp;/i','&',$string);
+    $trimmed = "";
+    $string = strip_tags($string);
+    $string = preg_replace("/\040+/", " ", trim($string));
+    $stringc = explode(" ", $string);
+    if ($word_count >= sizeof($stringc))
+        return $string; //nothing to do, our string is smaller than the limit.
+
+
+
+// trim the string to the word count
+    for ($i = 0; $i < $word_count; $i++)
+        $trimmed .= $stringc[$i] . " ";
+    if (substr($trimmed, strlen(trim($trimmed)) - 1, 1) == '.')
+        return trim($trimmed) . ' ..';
+    return trim($trimmed) . ' ...';
+}
+

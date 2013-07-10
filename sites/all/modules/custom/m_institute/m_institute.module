@@ -1,0 +1,122 @@
+<?php
+
+function m_institute_theme()
+{
+    return array(
+        'history' => array(
+            'render element' => 'element',
+            'template' => 'templates/history'
+        ),
+        'menu_tree_history' => array(
+            'render element' => 'element',
+        ),
+        'term_board_of_director' => array(
+            'render element' => 'element',
+            'template' => 'templates/taxonomy-term'
+        ),
+    );
+}
+
+function m_institute_menu()
+{
+    $items = array();
+
+    $items['pasteur-institute/history'] = array(
+        'title' => t('Pasteur institute'),
+        'page callback' => 'show_history',
+        'access arguments' => array('access content'),
+        'file' => 'pasteur.page.inc',
+        'type' => MENU_CALLBACK
+    );
+
+    $items['pasteur-institute/term/%taxonomy_term'] = array(
+        'title' => t('Border Of Director'),
+        'page callback' => 'show_taxonomy_term',
+        'page arguments' => array(2),
+        'access arguments' => array('access content'),
+        'file' => 'pasteur.page.inc',
+        'type' => MENU_CALLBACK
+    );
+
+    $items['pasteur-institute'] = array(
+        'title' => t('Pasteur institute'),
+        'page callback' => 'pasteur_institute_first_show',
+        'access callback' => TRUE,
+        'file' => 'pasteur.page.inc',
+        'type' => MENU_CALLBACK
+    );
+
+    return $items;
+}
+
+function m_institute_node_view($node, $view_mode, $langcode)
+{
+
+    if ($node->type == 'pasteur_institute' && $view_mode == 'full') {
+        $images = field_get_items('node', $node, 'field_pasteur_institute_image');
+        if (count($images) > 1) {
+            $content_image_large = '';
+            $content_image_thumb = '';
+            foreach ($images as $k => $image) {
+                $content_image_large.='<li><img src="' . image_style_url('image_406px_286px', $image['uri']) . '" alt="' . $image['alt'] . '" /></li>';
+                $content_image_thumb.='<li' . ($k == 0 ? ' class="current" ' : NULL) . '>
+		 	 			<a href="javascript:void(0);" title="' . $image['title'] . '">
+		 	 				<img src="' . image_style_url('image_80px_56px', $image['uri']) . '" alt="' . $image['alt'] . '" />
+		 	 			</a>
+		 	 		</li>';
+            }
+            $node->content['images_large'] = $content_image_large;
+            $node->content['images_thumb'] = $content_image_thumb;
+        }
+
+        $summary = field_get_items('node', $node, 'body');
+        if ($summary[0]['summary'] != '') {
+            $summary = field_view_value('node', $node, 'body', $summary[0], 'teaser');
+            $node->content['summary'] = $summary;
+        }
+    }
+
+    if ($node->type == 'pasteur_history' && $view_mode == 'full') {
+        set_active_menu('pasteur-institute/history');
+    }
+}
+
+function theme_menu_tree_history($variables)
+{
+    return '<ul>' . $variables['element']['#children'] . '</ul>';
+}
+
+# BEGIN :hook block
+
+function m_institute_block_info()
+{
+    $blocks = array();
+    $blocks['m_institute_menu_left'] = array(
+        'info' => t('Block Menu At Pasteur Institute'),
+        'status' => TRUE,
+        'region' => 'sidebar_left',
+        'visibility' => BLOCK_VISIBILITY_LISTED,
+        'pages' => implode("\n", array(
+            'pasteur-institute',
+            'pasteur-institute/*',
+        )),
+    );
+    return $blocks;
+}
+
+function m_institute_block_view($block_name = '')
+{
+    global $language;
+    switch ($block_name) {
+        case 'm_institute_menu_left':
+            $tree = menu_tree_page_data('menu-left-pasteur', 1);
+            $tree = i18n_menu_localize_tree($tree, i18n_langcode());
+            $content = menu_tree_output($tree);
+            $content['#theme_wrappers'] = array('menu_tree_block_left');
+            $block['content'] = $content;
+            break;
+    }
+    return $block;
+}
+
+# END :hook block

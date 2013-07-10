@@ -1,0 +1,16 @@
+<?php
+
+	function m_admin_content_menu(){
+		
+		$items['admin/m-content'] = array(
+	    'title' => 'Pasteur Office',
+	    'description' => 'Find and manage content.',
+	    'page callback' => 'drupal_get_form',
+	    'page arguments' => array('m_node_admin_content'),
+	    'access arguments' => array('access content overview'),
+	    'weight' => -10,
+	    'file' => 'm_admin_content.admin.inc',
+	  );
+		return $items;
+		
+	}

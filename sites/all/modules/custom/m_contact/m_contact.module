@@ -1,0 +1,115 @@
+<?php
+function m_contact_menu()
+{
+    $items = array();
+    $items['contact-us'] = array(
+        'title' => t('Contact', array(), array('context' => 'contact-us')),
+        'page callback' => 'my_contact_form',
+        //'page arguments' => array('contact_us_form'),
+        'access arguments' => array('access content'),
+    );
+
+    return $items;
+}
+
+function my_contact_form()
+{
+    drupal_set_title(t('Contact', array(), array('context' => 'contact-us')));
+
+    $data = array(
+        'form' => drupal_get_form('m_contact_form'),
+    );
+    if (isset($_SESSION['messages']['contact']) && $_SESSION['messages']['contact']) {
+    }
+    return theme('contact_form', $data);
+}
+
+function m_contact_form($form, &$form_state)
+{
+    $form['#attributes'] = array('class' => array('contact-form'));
+    $form['name'] = array(
+        '#title' => t('Full name'),
+        '#type' => 'textfield',
+        '#attributes' => array('size' => ''),
+        '#required' => true,
+    );
+    $form['email'] = array(
+        '#title' => t('Email'),
+        '#type' => 'textfield',
+        '#required' => true,
+        '#attributes' => array('size' => ''),
+    );
+    $form['message'] = array(
+        '#title' => t('Content'),
+        '#type' => 'textarea',
+        '#required' => true,
+    );
+    $form['select-vacxin'] = array(
+        '#type' => 'select',
+        '#title' => t('List of vaccines'),
+        '#default_value' => '',
+        '#options' => array(
+            'amocxilin' => 'Amocxilin',
+            'mocphine' => 'Mocphine'
+        )
+    );
+
+    $form['submit'] = array(
+        '#type' => 'submit',
+        '#value' => t('Send'),
+    );
+    $form['#theme_wrappers'] = array('custom_form');
+    return $form;
+}
+function m_contact_form_submit($form, &$form_state)
+{
+
+    $module = 'm_contact';
+    $key = 'contact_message';
+
+		$p_settings = variable_get('email_settings', array(
+			'email_contact' => '',
+			'email_recive_cv' => '',
+		));
+
+		$to=$p_settings['email_contact'];
+
+    $from = $form_state['values']['email'];
+    $params = $form_state['values'];
+    $language = language_default();
+    $send = true;
+    $result = drupal_mail($module, $key, $to, $language, $params, $from, $send);
+    if ($result['result']) {
+        drupal_set_message(t('Your message has been sent.'));
+    } else {
+        drupal_set_message(t('There was a problem sending your message and it was not sent.'), 'contact');
+    }
+}
+function m_contact_mail($key, &$message, $params)
+{
+    switch ($key) {
+    case 'contact_message':
+        $message['subject'] = t('Information contact form website Vien Pasteur', array(), array('context' => 'm_contact'));
+        $content = '<br ><font style="font-weight:bold;font-size:12px;">'.t('Information contact').'</font><br /><br />';
+        $content .= t('Full name', array(), array('context' => 'm_contact')).' : '.$params['name'].'<br />';
+        $content .= t('E mail', array(), array('context' => 'm_contact')).' : '.$params['email'].'<br />';
+        $content .= t('Content', array(), array('context' => 'm_contact')).' : '.$params['message'].'<br />';
+        $content .= t('List of vaccines', array(), array('context' => 'm_contact')).' : '.$params['select-vacxin'].'<br />';
+        $message['body'][] = $content;
+        break;
+    }
+
+    $message['headers']['Content-Type'] = 'text/html; charset=UTF-8; format=flowed';
+
+}
+function m_contact_theme($existing, $type, $theme, $path)
+{
+    $theme_hooks = array(
+        'contact_form' => array(
+            'path' => drupal_get_path('module', 'm_contact'),
+            'template' => 'templates/contact',
+            'variables' => array('data' => NULL, 'term' => NULL, 'page' => NULL),
+        ),
+    );
+    return $theme_hooks;
+}

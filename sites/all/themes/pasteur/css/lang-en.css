@@ -1,0 +1,18 @@
+.input-type-01 .btn-search {background: url(../images/en/ui-form.png) -11px 0 no-repeat; display: block; float: left; height: 33px; width: 89px;}
+.input-type-01 .btn-search:hover {background: url(../images/en/ui-form.png) -11px -46px ; display: block; float: left; height: 33px; width: 89px;}
+
+.ui-button {background: url(../images/en/ui-button.png) 0 0 no-repeat;}
+.button-type-2 {background-position: 0 -156px; display: block; height: 40px; width: 152px;}
+.button-type-2:hover {background-position: -239px -156px; display: block; height: 40px; width: 152px;}
+
+.btn-other-recruitment { background: url(../images/en/ui-button.png) -240px -104px no-repeat; width: 155px; height: 34px; float: left; text-indent: -9999px; margin: 10px 0 0 10px;}
+.btn-other-recruitment:hover { background: url(../images/en/ui-button.png)  0 -104px no-repeat;  }
+
+.btn-upload {background: url("../images/en/ui-button.png") no-repeat scroll -240px -52px transparent; width: 84px; height: 34px; float: left; text-indent: -9999px; margin: 10px 0;}
+.btn-upload:hover { background: url(../images/en/ui-button.png) 0 -52px no-repeat;}
+
+.form-type-button .btn-send { background:url(../images/en/ui-button.png) -240px -305px; width:90px; height:35px; text-indent:-9999px; display:block; float:left; margin-right:10px;}
+	 .form-type-button .btn-send:hover { background-position:-1px -305px}
+	 
+.form-type-button .btn-reset { background:url(../images/en/ui-button.png) -344px -305px; width:100px; height:35px; text-indent:-9999px; display:block; float:left;}
+	 .form-type-button .btn-reset:hover { background-position:-105px -305px}	 

@@ -1,0 +1,6 @@
+name = Product Manager
+description = Product manager
+package = Custom module
+core = 7.x
+files[] = product_manager.install
+files[] = product_manager.module

@@ -1,0 +1,9 @@
+name = Devmod
+description = Hook of drupal
+; dependencies[] = node
+package = Development
+core = 7.x
+files[] = devmod.module
+; Information added by drupal.org packaging script on 2010-05-23
+project = "Devmod"
+datestamp = "1274628610"

@@ -1,0 +1,477 @@
+<?php
+
+function m_recruitment_theme()
+{
+    return array(
+        'm_recruitment' => array(
+            'render element' => 'element',
+            'template' => 'm-recruitment',
+        ),
+        'm_recuitment_custom_field_text' => array(
+            'render element' => 'element',
+        ),
+        'm_recuitment_custom_element_label' => array(
+            'render element' => 'element',
+        ),
+        'm_custom_captcha' => array(
+            'render element' => 'element'
+        ),
+        'm_custom_captcha_text_field' => array(
+            'render element' => 'element',
+        ),
+    );
+}
+
+function m_recruitment_menu()
+{
+    $items = array();
+    $items['recruitment'] = array(
+        'title' => t('Recruitment'),
+        'page callback' => 'get_all_recruitment',
+        'access arguments' => array('access content'),
+        'type' => MENU_CALLBACK
+    );
+
+    return $items;
+}
+
+function m_recruitment_node_view($node, $view_mode, $langcode)
+{
+
+    if ($node->type == 'recruitment' && $view_mode == 'full') {
+        $file = field_get_items('node', $node, 'field_recruitment_file');
+        $node->content['file_download'] = '';
+        if ($file) {
+            $node->content['file_download'] = array(
+                '#markup' => '<a target="_blank" href="' . file_create_url($file[0]['uri']) . '" title="' . t('Download Application Document') . '" class="btn-download">' . t('Download Application Document') . '</a>'
+            );
+        }
+        $node->content['form_application'] = drupal_get_form('recruitment_application_form', $node->nid);
+
+        $address_apply = field_get_items('node', $node, 'field_recruitment_address_apply');
+        if ($address_apply) {
+            $node->content['address_apply'] = array(
+                '#markup' => $address_apply[0]['safe_value']
+            );
+        }
+    }
+}
+
+function m_recruitment_mail($key, &$message, $params)
+{
+    $language = $message['language'];
+    switch ($key) {
+        case 'send_cv':
+            $message['subject'] .= t('Don xin viec gui tai !site-name', array('!site-name' => variable_get('site_name')), array('langcode' => $language->language));
+
+            $variables['app_cv'] = $params;
+            $text = '
+  			 	Họ và tên : !firstname <br />
+  			 	Email : !mail <br />
+  			 	Số điện thoại : !telephone <br />
+  			 	Vị trí : <br />
+  			 	<strong>!title</strong>
+  			 ';
+
+            $body = t($text, array(
+                '!firstname' => $params['full_name'],
+                '!mail' => $params['mail'],
+                '!telephone' => $params['telephone'],
+                '!title' => $params['title']
+                    ));
+
+            #$mine_type=file_get_mimetype($variables['app_cv']['file_application_letter']->uri);
+            #$file_content=chunk_split(base64_encode(file_get_contents($variables['app_cv']['file_application_letter']->uri)));
+            $file_application_letter = array(
+                'filepath' => $variables['app_cv']['file_application_letter']->uri,
+                'filename' => $variables['app_cv']['file_application_letter']->filename,
+                    #'filemime' => $mine_type,
+            );
+
+            $mine_type = file_get_mimetype($variables['app_cv']['file_application_cv']->uri);
+            #$file_content=chunk_split(base64_encode(file_get_contents($variables['app_cv']['file_application_cv']->uri)));
+            $file_application_cv = array(
+                'filepath' => $variables['app_cv']['file_application_cv']->uri,
+                'filename' => $variables['app_cv']['file_application_cv']->filename,
+                    #'filemime' => $mine_type,
+            );
+
+
+            $message['body'][] = $body;
+            $message['params']['attachments'][] = $file_application_letter;
+            $message['params']['attachments'][] = $file_application_cv;
+            $message['headers']['Content-Type'] = 'text/html; charset=UTF-8; format=flowed';
+            break;
+    }
+}
+
+function theme_m_recuitment_custom_field_text($variables)
+{
+    $element = &$variables['element'];
+    // This is also used in the installer, pre-database setup.
+    $t = get_t();
+
+    // This function is invoked as theme wrapper, but the rendered form element
+    // may not necessarily have been processed by form_builder().
+    $element += array(
+        '#title_display' => 'before',
+    );
+
+    // Add element #id for #type 'item'.
+    if (isset($element['#markup']) && !empty($element['#id'])) {
+        $attributes['id'] = $element['#id'];
+    }
+    // Add element's #type and #name as class to aid with JS/CSS selectors.
+    $attributes['class'] = array('form-item');
+    if (!empty($element['#type'])) {
+        $attributes['class'][] = 'form-type-' . strtr($element['#type'], '_', '-');
+    }
+    if (!empty($element['#name'])) {
+        $attributes['class'][] = 'form-item-' . strtr($element['#name'], array(' ' => '-', '_' => '-', '[' => '-', ']' => ''));
+    }
+    // Add a class for disabled elements to facilitate cross-browser styling.
+    if (!empty($element['#attributes']['disabled'])) {
+        $attributes['class'][] = 'form-disabled';
+    }
+    #$output = '<div' . drupal_attributes($attributes) . '>' . "\n";
+
+    $output = ' <div class="form-item form-type-textfield">';
+    // If #title is not set, we don't display any label or required marker.
+    if (!isset($element['#title'])) {
+        $element['#title_display'] = 'none';
+    }
+    $prefix = isset($element['#field_prefix']) ? '' . $element['#field_prefix'] . '' : '';
+    $suffix = isset($element['#field_suffix']) ? '' . $element['#field_suffix'] . '' : '';
+    $required = !empty($element['#required']) ? '<span class="require">(*) </span>' : '';
+
+    switch ($element['#title_display']) {
+        case 'before':
+        case 'invisible':
+            $output .= ' ' . theme('m_recuitment_custom_element_label', $variables);
+            $output .= ' ' . $prefix . $element['#children'] . $suffix . "\n";
+            $output .= $required;
+
+            break;
+
+        case 'after':
+            $output .= ' ' . $prefix . $element['#children'] . $suffix;
+            $output .= ' ' . theme('form_element_label', $variables) . "\n";
+            break;
+
+        case 'none':
+        case 'attribute':
+            // Output no label and no required marker, only the children.
+            $output .= ' ' . $prefix . $element['#children'] . $suffix . "\n";
+            break;
+    }
+
+    if (!empty($element['#description'])) {
+        $output .= '<div class="description">' . $element['#description'] . "</div>\n";
+    }
+
+    $output .= "</div>\n";
+
+    return $output;
+}
+
+function theme_m_recuitment_custom_element_label($variables)
+{
+    $element = $variables['element'];
+    // This is also used in the installer, pre-database setup.
+    $t = get_t();
+
+    // If title and required marker are both empty, output no label.
+    if ((!isset($element['#title']) || $element['#title'] === '') && empty($element['#required'])) {
+        return '';
+    }
+
+    // If the element is required, a required marker is appended to the label.
+    #$required = !empty($element['#required']) ? theme('form_required_marker', array('element' => $element)) : '';
+
+    $title = filter_xss_admin($element['#title']);
+
+    $attributes = array();
+    // Style the label as class option to display inline with the element.
+    if ($element['#title_display'] == 'after') {
+        $attributes['class'] = 'option';
+    }
+    // Show label only to screen readers to avoid disruption in visual flows.
+    elseif ($element['#title_display'] == 'invisible') {
+        $attributes['class'] = 'element-invisible';
+    }
+
+    if (!empty($element['#id'])) {
+        $attributes['for'] = $element['#id'];
+    }
+
+    // The leading whitespace helps visually separate fields from inline labels.
+    return ' <label' . drupal_attributes($attributes) . '>' . $t('!title', array('!title' => $title)) . "</label>\n";
+}
+
+function recruitment_application_form($form, $form_state, $nid)
+{
+
+    $form['nid'] = array(
+        '#type' => 'hidden',
+        '#default_value' => $nid,
+    );
+
+    $form['full_name'] = array(
+        '#type' => 'textfield',
+        '#required' => TRUE,
+        '#title' => t('Full name'),
+        '#attributes' => array(
+            'class' => array('input-type-02'),
+            'id' => 'name',
+        ),
+        '#field_prefix' => '<span><span>',
+        '#field_suffix' => '</span></span>',
+        '#theme_wrappers' => array('m_recuitment_custom_field_text')
+    );
+
+    $form['mail'] = array(
+        '#type' => 'textfield',
+        '#required' => TRUE,
+        '#title' => t('Email address'),
+        '#attributes' => array(
+            'class' => array('input-type-02'),
+            'id' => 'email',
+        ),
+        '#field_prefix' => '<span><span>',
+        '#field_suffix' => '</span></span>',
+        '#theme_wrappers' => array('m_recuitment_custom_field_text')
+    );
+
+    $form['telephone'] = array(
+        '#type' => 'textfield',
+        '#required' => TRUE,
+        '#title' => t('Telephone'),
+        '#attributes' => array(
+            'class' => array('input-type-02'),
+            'id' => 'phone'
+        ),
+        '#field_prefix' => '<span><span>',
+        '#field_suffix' => '</span></span>',
+        '#theme_wrappers' => array('m_recuitment_custom_field_text')
+    );
+
+    $form['tmarkup'] = array(
+        '#markup' => t('Đính kèm lý lịch cá nhân và/ hoặc thư ứng tuyển'),
+        '#prefix' => '<div class="form-item form-type-textfield"><p>',
+        '#suffix' => '</p></div>',
+    );
+
+    $form['file_application_letter'] = array(
+        '#type' => 'file',
+        '#title' => t('Application letter'),
+        '#attributes' => array(
+            'class' => array('input-type-02'),
+            'size' => 0
+        ),
+        '#theme_wrappers' => array('m_recuitment_custom_field_text')
+    );
+
+
+    $form['file_application_cv'] = array(
+        '#type' => 'file',
+        '#title' => t('Application Curriculum Vitae'),
+        '#attributes' => array(
+            'class' => array('input-type-02'),
+            'size' => 0
+        ),
+        '#theme_wrappers' => array('m_recuitment_custom_field_text')
+    );
+
+    $form['captcha'] = array(
+        '#type' => 'captcha',
+        '#title' => t('Security code'),
+        '#captcha_type' => 'image_captcha/Image',
+        '#process' => array('captcha_element_process', 'my_custom_captcha'),
+    );
+
+
+    $form['action'] = array(
+        '#type' => 'submit',
+        '#value' => 'submit',
+        '#attributes' => array(
+            'style' => 'display:none'
+        )
+    );
+
+
+    $form['submit'] = array(
+        '#markup' => '<a href="#" title="Nộp hồ sơ" class="btn-upload">Nộp hồ sơ</a>'
+    );
+
+    $form['#attributes'] = array(
+        'class' => array('form-general'),
+        'id' => 'recruitment-form'
+    );
+
+    return $form;
+}
+
+function recruitment_application_form_validate($form, &$form_state)
+{
+    if ($error = user_validate_mail($form_state['values']['mail'])) {
+        form_set_error('mail', $error);
+    }
+
+    $node = node_load($form_state['values']['nid']);
+    if ($node->type != 'recruitment') {
+        form_set_error('nid', t('Error for type hidden'));
+    } else {
+        $form_state['values']['title'] = $node->title;
+    }
+    check_validator_file_upload('file_application_letter');
+    check_validator_file_upload('file_application_cv');
+}
+
+function recruitment_application_form_submit($form, &$form_state)
+{
+    form_state_values_clean($form_state);
+    $max_size = 2;
+    $validators = array(
+        'file_validate_size' => array($max_size * 1204 * 1204), # max site 2 MB
+        'file_validate_extensions' => array('doc pdf docx')
+    );
+    $filepath = 'private://file_application_cv';
+    $file = file_save_upload('file_application_letter', $validators, $filepath, FILE_EXISTS_RENAME);
+    if (!$file) {
+        form_set_error('file_application_letter', 'You don\'t upload file Application letter');
+        return;
+    } else {
+        $form_state['values']['file_application_letter'] = $file;
+    }
+
+    $file = file_save_upload('file_application_cv', $validators, $filepath, FILE_EXISTS_RENAME);
+    if (!$file) {
+        form_set_error('file_application_cv', 'You don\'t upload file Application curriculum vitae');
+        return;
+    } else {
+        $form_state['values']['file_application_cv'] = $file;
+    }
+
+    $values = $form_state['values'];
+    $settings = variable_get('email_settings', array(
+        'email_recive_cv' => '',
+            ));
+    $to = $settings['email_recive_cv'];
+    $params = $values;
+    drupal_mail('m_recruitment', 'send_cv', $to, language_default(), $params, $values['mail']);
+    drupal_set_message(t('Your cv have been send to us.We will reply as soon as posible '));
+}
+
+function get_all_recruitment()
+{
+    global $language_content;
+    $vocabulary = taxonomy_vocabulary_machine_name_load('recruitment');
+
+    $query = db_select('taxonomy_term_data', 't');
+    $tids = $query
+                    ->addTag('translatable')
+                    ->addTag('term_access')
+                    ->fields('t', array('tid', 'name'))
+                    ->condition('t.vid', $vocabulary->vid)
+                    ->condition('t.language', $language_content->language)
+                    ->orderBy('t.weight', 'ASC')
+                    ->orderBy('t.name')
+                    ->execute()->fetchAll();
+
+    $lists = array();
+    foreach ($tids as $tid) {
+        $nids = taxonomy_select_nodes($tid->tid);
+        $lists[] = array(
+            'name' => $tid->name,
+            'nodes' => node_load_multiple($nids)
+        );
+    }
+    $build = array();
+    $build['lists'] = $lists;
+    $build['#theme'] = 'm_recruitment';
+    return $build;
+}
+
+#BEGIN custom captcha
+
+function my_custom_captcha(&$variables)
+{
+    $variables['#theme'] = 'm_custom_captcha';
+    $variables['#m_title'] = t('Enter the characters shown in the image.');
+
+
+    $variables['captcha_widgets']['captcha_response']['#attributes'] = array(
+        'class' => array('input-type-02'),
+    );
+    $variables['captcha_widgets']['captcha_response']['#title'] = t('Security code');
+    $variables['captcha_widgets']['captcha_response']['#description'] = null;
+    $variables['captcha_widgets']['captcha_response']['#theme_wrappers'] = array('m_custom_captcha_text_field');
+    $variables['captcha_widgets']['captcha_response']['#weight'] = -3;
+    $variables['captcha_widgets']['captcha_response']['#required'] = true;
+
+    return $variables;
+}
+
+function theme_m_custom_captcha_text_field($variables)
+{
+    $element = &$variables['element'];
+    return '<span><span>' . $element['#children'] . '</span></span>';
+}
+
+function theme_m_custom_captcha($variables)
+{
+    $element = $variables['element'];
+    return '
+	<div class="form-item form-type-textfield">
+  	<label for="capcha">' . $element['#title'] . '</label>
+    <div class="form-items">
+    	<p class="text">
+    		<span>' . $element['#m_title'] . '</span>
+    		<span class="require">(&lowast;)</span>
+    	</p>
+			<p>
+				' . drupal_render_children($element) . '
+			</p>
+    </div>
+  </div>';
+}
+
+#END custom captcha
+
+function check_validator_file_upload($source)
+{
+    $max_size = 2;
+    $validators = array(
+        'file_validate_size' => array($max_size * 1204 * 1204), # max site 2 MB
+        'file_validate_extensions' => array('doc pdf docx')
+    );
+    $f_source = create_file_oject($source);
+    if (!$f_source) {
+        form_set_error($source, 'Please choose your file to upload');
+        return;
+    }
+
+    $error = file_validate_extensions($f_source, $validators['file_validate_extensions'][0]);
+    if (count($error) > 0) {
+        foreach ($error as $v) {
+            form_set_error($source, $v);
+        }
+    }
+
+    $filemime = array(
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document' => 1,
+        'application/pdf' => 1,
+        'application/msword' => 1
+    );
+
+    if (!isset($filemime[$f_source->filemime])) {
+        form_set_error($source, 'Please choose corrent file type :' . $validators['file_validate_extensions'][0]);
+    }
+
+    $error = file_validate_size($f_source, $validators['file_validate_size'][0]);
+    if (count($error) > 0) {
+        foreach ($error as $v) {
+            form_set_error($source, $v);
+        }
+    }
+}

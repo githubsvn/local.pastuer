@@ -1,0 +1,5 @@
+<?php
+
+	function m_common_install() {
+	  db_query("UPDATE {system} SET weight = 100 WHERE name = 'm_common' AND type = 'module'");
+	}

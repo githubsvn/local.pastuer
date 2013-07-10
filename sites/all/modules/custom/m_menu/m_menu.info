@@ -1,0 +1,13 @@
+name = My Custom Menu Helper
+description = Module for make the help for add menu
+package = My Module
+core = 7.x
+
+
+dependencies[] = ctools
+
+; Information added by drupal.org packaging script on 2012-02-20
+version = "7.x-1.x-dev"
+core = "7.x"
+project = "my custom"
+datestamp = "1329696863"

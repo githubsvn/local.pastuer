@@ -1,0 +1,322 @@
+<?php
+
+function news_menu()
+{
+    $items['news/term/%taxonomy_term'] = array(
+        'page callback' => 'get_list_news',
+        'page arguments' => array(2),
+        'access arguments' => array('access content'),
+        'type' => MENU_SUGGESTED_ITEM,
+    );
+    $items['news/term/expand/%taxonomy_term'] = array(
+        'page callback' => 'get_list_news_expand',
+        'page arguments' => array(3),
+        'access arguments' => array('access content'),
+        'type' => MENU_SUGGESTED_ITEM,
+    );
+    $items['news/term/collaspe/%taxonomy_term'] = array(
+        'page callback' => 'get_list_news_collaspe',
+        'page arguments' => array(3),
+        'access arguments' => array('access content'),
+        'type' => MENU_SUGGESTED_ITEM,
+    );
+
+    $items['news/term'] = array(
+        'page callback' => 'get_first_term',
+        'access callback' => TRUE,
+        'type' => MENU_CALLBACK
+    );
+
+    return $items;
+}
+
+function get_first_term()
+{
+    $tids = taxonomy_get_tree(2);
+    if (count($tids) == 0) {
+        drupal_goto();
+    }
+    reset($tids);
+    $tid = key($tids);
+    //var_dump($tids[$tid]->tid);die;
+    drupal_goto('taxonomy/term/' . $tids[$tid]->tid);
+}
+
+function get_list_news_collaspe($term)
+{
+    $img_path = base_path() . drupal_get_path('theme', $GLOBALS['theme']);
+    global $pager_page_array, $pager_total;
+    $nids = taxonomy_select_nodes($term->tid, true, 6);
+    $page = '';
+    if ($pager_total[0] > 1) {
+        $page = array(
+            'curr_p' => $pager_page_array,
+            'total_p' => $pager_total,
+            'link' => 'news/term/collaspe/' . $term->tid,
+            'query' => (array())
+        );
+    }
+    $list = node_load_multiple($nids);
+
+    $image = '';
+    $html = '';
+    $data = array();
+    if (!empty($list)) {
+        foreach ($list as $item) {
+
+            $summary = field_get_items('node', $item, 'body');
+            if ($summary[0]['summary'] != '') {
+                $summary = field_view_value('node', $item, 'body', $summary[0], 'teaser');
+            } else {
+                $summary = field_view_value('node', $item, 'body', $summary[0], 'full');
+            }
+            $item->summary = m_common_teaser($summary['#markup'], 30);
+
+            if (!empty($item->field_image['und'])) {
+                $src = image_style_url('image_news', $item->field_image['und'][0]['uri']);
+                $image = '<img src="' . $src . '" alt="' . check_plain($item->title) . '"/>';
+            }
+            $html .= '<li><div class="outter-news"><div class="inner-news">';
+            $html .= '<a href="' . url('node/' . $item->nid) . '" title="' . check_plain($item->title) . '" class="feature">' . $image . '</a>';
+            $html .= '<h3>' . l(news_teaser($item->title, 7), 'node/' . $item->nid, array('attributes' => array('title' => check_plain($item->title)))) . '</h3>';
+            $html .= '<div class="desc">' . $item->summary . '</div>';
+            $html .= '<a href="' . url('node/' . $item->nid) . '" title="' . t('Read more') . '"><img src="' . $img_path . '/images/transparent.png" class="ui-bullet init-bullet-1" alt="' . t('Read more') . '"/></a>';
+            $html .= '</div>';
+            $html .= '</div>';
+            $html .= '</li>';
+        }
+
+        $p = news_pager($page, 6);
+        $data = array(
+            'datablocks' => '<ul>' . $html . '</ul>',
+            'pagingblocks' => '<div class="paging-1">' . $p . '</div>',
+            'url' => url('news/term/expand/' . $term->tid),
+            'page' => isset($_GET['page']) ? (int) $_GET['page'] : 0
+        );
+    }
+    //echo theme('list_news_ajax', array('nodes' => $nids, 'term' => $id, 'page' => $page));
+    echo json_encode($data);
+    drupal_exit();
+}
+
+function get_list_news_expand($term)
+{
+    $img_path = base_path() . drupal_get_path('theme', $GLOBALS['theme']);
+    global $pager_page_array, $pager_total;
+
+    $nids = taxonomy_select_nodes($term->tid, true, 8);
+
+    $page = '';
+    if ($pager_total[0] > 1) {
+        $page = array(
+            'curr_p' => $pager_page_array,
+            'total_p' => $pager_total,
+            'link' => 'news/term/expand/' . $term->tid,
+            'query' => (array())
+        );
+    }
+    $list = node_load_multiple($nids);
+
+    $image = '';
+
+    $html = '';
+    if (!empty($list)) {
+        foreach ($list as $item) {
+            $summary = field_get_items('node', $item, 'body');
+            if ($summary[0]['summary'] != '') {
+                $summary = field_view_value('node', $item, 'body', $summary[0], 'teaser');
+            } else {
+                $summary = field_view_value('node', $item, 'body', $summary[0], 'full');
+            }
+            $item->summary = m_common_teaser($summary['#markup'], 30);
+
+            if (!empty($item->field_image['und'])) {
+                $src = image_style_url('image_news', $item->field_image['und'][0]['uri']);
+                $image = '<img src="' . $src . '" alt="' . check_plain($item->title) . '"/>';
+            }
+            $html .= '<li><div class="outter-news"><div class="inner-news">';
+            $html .= '<a href="' . url('node/' . $item->nid) . '" title="' . check_plain($item->title) . '" class="feature">' . $image . '</a>';
+            $html .= '<h3>' . l(news_teaser($item->title, 7), 'node/' . $item->nid, array('attributes' => array('title' => check_plain($item->title)))) . '</h3>';
+            $html .= '<div class="desc">' . $item->summary . '</div>';
+            $html .= '<a href="' . url('node/' . $item->nid) . '" title="' . t('Read more') . '"><img src="' . $img_path . '/images/transparent.png" class="ui-bullet init-bullet-1" alt="' . t('Read more') . '"/></a>';
+            $html .= '</div>';
+            $html .= '</div>';
+            $html .= '</li>';
+        }
+
+        $p = news_pager($page, 8);
+        $data = array(
+            'datablocks' => '<ul>' . $html . '</ul>',
+            'pagingblocks' => '<div class="paging-1">' . $p . '</div>',
+            'url' => url('news/term/collaspe/' . $term->tid),
+            'page' => isset($_GET['page']) ? (int) $_GET['page'] : 0
+        );
+
+        echo json_encode($data);
+    }
+
+    drupal_exit();
+}
+
+function get_list_news($term)
+{
+    global $pager_page_array, $pager_total;
+    $nids = taxonomy_select_nodes($term->tid, true, 6);
+    $page = '';
+    if ($pager_total[0] > 1) {
+        $page = array(
+            'curr_p' => $pager_page_array,
+            'total_p' => $pager_total,
+            'link' => 'news/term/collaspe/' . $term->tid,
+            'query' => (array())
+        );
+    }
+    return theme('list_news', array('nodes' => $nids, 'term' => $term->tid, 'page' => $page));
+}
+
+function news_block_info()
+{
+    $blocks['menu_news']['info'] = t('Menu news left (News)');
+    $blocks['block_right']['info'] = t('Right content (News)');
+    return $blocks;
+}
+
+function news_block_view($delta = '')
+{
+    global $language;
+    $img_path = base_path() . drupal_get_path('theme', $GLOBALS['theme']);
+    $block = null;
+    $html = '';
+    switch ($delta) {
+
+        case 'menu_news':
+            $categories = taxonomy_get_tree(2);
+            #menu_tree_set_path('main-menu', 'news/term');
+            #menu_set_active_menu_name('main-menu');
+            set_active_menu('news/term');
+            $m_tid = arg(2);
+            if (arg(0) == 'node' && is_numeric(arg(1))) {
+                $tid = field_get_items('node', node_load(arg(1)), 'field_sections');
+                if ($tid) {
+                    $m_tid = $tid[0]['tid'];
+                }
+            }
+            $html = '<ul class="sidebar-left-nav">';
+            if (!empty($categories)) {
+                foreach ($categories as $key => $cate) {
+                    if ($cate->tid == $m_tid) {
+                        $class = "class='active-trail'";
+                    } else
+                        $class = '';
+                    $html .= '<li ' . $class . '><a href="' . url('taxonomy/term/' . $cate->tid) . '" title="' . $cate->name . '">' . $cate->name . '</a></li>';
+                }
+            }
+            $html .= '</ul>';
+            $block['content'] = $html;
+            $block['m_button'] = '<a class="expand" id="expandTag" title="" href="javascript:void(0);" data-url="' . url('news/term/expand/' . arg(2)) . '">&nbsp;</a>';
+            break;
+    }
+    return $block;
+}
+
+function news_theme($existing, $type, $theme, $path)
+{
+    $theme_hooks = array(
+        'list_news' => array(
+            'path' => drupal_get_path('module', 'news'),
+            'template' => 'templates/listnews',
+            'variables' => array('data' => NULL, 'term' => NULL, 'page' => NULL),
+        ),
+            /*        'list_news_ajax' => array(
+              'path' => drupal_get_path('module', 'news'),
+              'template' => 'templates/list-ajax-news',
+              'variables' => array('data' => NULL, 'term' => NULL, 'page' => NULL),
+              ), */
+    );
+    return $theme_hooks;
+}
+
+function news_teaser($string, $word_count = 100)
+{
+    $string = str_replace("\n", '', $string);
+    $string = preg_replace('/<style.*<\/style>/i', '', $string);
+    //$string = preg_replace('/&amp;/i','&',$string);
+    $trimmed = "";
+    $string = strip_tags($string);
+    $string = preg_replace("/\040+/", " ", trim($string));
+    $stringc = explode(" ", $string);
+    if ($word_count >= sizeof($stringc))
+        return $string; //nothing to do, our string is smaller than the limit.
+
+
+// trim the string to the word count
+    for ($i = 0; $i < $word_count; $i++)
+        $trimmed .= $stringc[$i] . " ";
+    if (substr($trimmed, strlen(trim($trimmed)) - 1, 1) == '.')
+        return trim($trimmed) . ' ..';
+    return trim($trimmed) . ' ...';
+}
+
+function news_pager($page, $nshowp = 0)
+{
+    $img_path = base_path() . drupal_get_path('theme', $GLOBALS['theme']);
+
+    global $pager_page_array, $pager_total;
+    if (!$page)
+        return '';
+    $param = drupal_get_query_parameters();
+    if (isset($page['query']))
+        $page['query'] = $param + $page['query'];
+    $html = '';
+    $pshow = intval($nshowp / 2);
+    //$pager_middle = ceil($quantity / 2);
+
+    if ($page) {
+        $from = ($page['curr_p'][0] - $pshow);
+        $from = ($from >= 1 ? $from : 1);
+        $to = ($page['curr_p'][0] + $pshow);
+        $to = ($to <= $page['total_p'][0] ? $to : $page['total_p'][0]);
+        $to = ($from + $nshowp > $to ? $from + $nshowp : $to);
+        $to = ($to > $page['total_p'][0] ? $page['total_p'][0] : $to);
+        if (($to - $from) < $nshowp)
+            $from = (($page['total_p'][0] - $nshowp) > 0 ? ($page['total_p'][0] - $nshowp) : 1);
+
+        //$from = max(array(1,$page['curr_p'][0]-$pshow));
+        //$to = min(array($page['total_p'][0],$page['curr_p'][0]+$pshow));
+        /* if($to-$from<$pshow && $page['total_p'][0]>$to){
+          $to = min( array($page['total_p'][0],$to + ($to-$from) ));
+          } */
+
+        $p_pre = max(array(0, $page['curr_p'][0] - 1));
+        $p_next = min(array($page['total_p'][0], $page['curr_p'][0] + 1));
+        $html .= '<ul>';
+        if ($page['curr_p'][0] > 0) {
+            /* $html .= '<li class="btnPrevious"><a href="'.url($page['link'], array('query' => array(
+              'page' => $p_pre
+              ))).'" title="'.t('Previous').'" class="btn-prev"></a></li>';
+             */
+            $m_img = '<img src="' . $img_path . '/images/transparent.png" class="ui-icon init-icon-10" alt="' . t('Previous') . '" />';
+
+            $html .= '<li class="btnPrevious">';
+            $html .= l($m_img, $page['link'], array(
+                'attributes' => array('title' => t('Previous')),
+                'query' => array('page' => $p_pre),
+                'html' => true,
+                    ));
+            $html .= '</li>';
+        }
+        for ($i = $from; $i <= $to; $i++) {
+            $p = $i - 1;
+            $html .= '<li ' . ($p == $page['curr_p'][0] ? 'class="current"' : '') . '>';
+            $html .= '<a href="' . url($page['link'], array('query' => array('page' => $p) + $page['query'])) . '" title="' . $i . '">' . $i . '</a>';
+            $html .= '</li>';
+        }
+        if ($page['curr_p'][0] + 1 != $page['total_p'][0]) {
+            $html .= '<li class="btnNext"><a href="' . url($page['link'], array('query' => array('page' => $p_next))) . '" title="' . t('Next') . '"><img src="' . $img_path . '/images/transparent.png" class="ui-icon init-icon-11" alt="' . t('Next') . '" /></a></li>';
+        }
+        $html .= '</ul>';
+    }
+    return $html;
+}
+
+?>

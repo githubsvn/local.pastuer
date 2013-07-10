@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?> 
+ <project name="Pasteur" basedir="." default="source">
+    <property name="builddir" value="${ws}/build" />
+    <!-- Clean old datas -->
+    <target name="clean">
+        <echo msg="Clean..." />
+        <delete dir="${builddir}" />
+    </target>
+    <!-- Preparing Evironment Report Folder structure -->
+    <target name="prepare">
+        <echo msg="Prepare..." />
+        <mkdir dir="${builddir}" />
+        <mkdir dir="${builddir}/logs" />
+        <mkdir dir="${builddir}/logs/coverage" />
+        <mkdir dir="${builddir}/docs" />
+    </target>
+    <!-- Deploy source -->
+    <target name="source">
+        <echo msg="We do nothing yet!" />
+    </target>
+    <!-- PHP API Documentation -->
+    <target name="phpdoc">
+        <echo msg="PHP Documentor..." />
+        <phpdoc title="API Documentation"
+                destdir="${builddir}/docs"
+                sourcecode="yes"
+                defaultpackagename="MHTest"
+                output="HTML:Smarty:PHP">
+            <fileset dir="./source">
+                <include name="**/*.php" />
+            </fileset>
+        </phpdoc>
+    </target>
+    <!-- PHP copy/paste analysis -->
+    <target name="phpcpd">
+        <echo msg="PHP Copy/Paste..." />
+        <exec command="phpcpd --log-pmd ${builddir}/logs/pmd.xml --min-lines 10 ${ws}/source/sites/all/modules/custom" escape="false" />
+    </target>
+    <!-- PHP dependency checker -->
+    <target name="pdepend">
+        <echo msg="PHP Depend..." />
+        <exec command="pdepend --jdepend-xml=${builddir}/logs/jdepend.xml ${ws}/source/sites/all/modules/custom" escape="false" />
+    </target>
+    <!-- PHP CodeSniffer ntt-->
+    <target name="phpcs">
+        <echo msg="PHP CodeSniffer..." />
+        <exec command="phpcs -n --standard=Zend --report=checkstyle --extensions=php,inc,module ${ws}/source/sites/all/modules/custom > ${builddir}/logs/checkstyle.xml" escape="false" />
+    </target>
+</project>
